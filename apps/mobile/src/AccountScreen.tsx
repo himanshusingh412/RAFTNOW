@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { api, ApiError } from './api';
 import { clearOffline } from './offline';
-import { Banner, Button, Card, c, ui } from './ui';
+import { Banner, Button, Card, HeroHeader, c, ui } from './ui';
 
 /** Support line in E.164 without "+", e.g. 919876543210. Set per build: EXPO_PUBLIC_SUPPORT_PHONE. */
 const SUPPORT_PHONE = process.env.EXPO_PUBLIC_SUPPORT_PHONE?.replace(/\D/g, '') || null;
@@ -48,8 +48,9 @@ export function AccountScreen({ phone, isOperator, onSignOut, onDeleted }: { pho
     );
 
   return (
-    <ScrollView style={ui.screen} contentContainerStyle={ui.pad}>
-      <Text style={ui.h1}>Account</Text>
+    <ScrollView style={ui.screen} contentContainerStyle={{ paddingBottom: 32 }}>
+      <HeroHeader title={phone ? 'Hi there!' : 'My Account'} subtitle={phone ? phone : 'Log in to book and manage trips'} />
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
       {err && <Banner tone="error">{err}</Banner>}
       {phone ? (
         <Card>
@@ -108,6 +109,7 @@ export function AccountScreen({ phone, isOperator, onSignOut, onDeleted }: { pho
           </Card>
         </>
       )}
+      </View>
     </ScrollView>
   );
 }

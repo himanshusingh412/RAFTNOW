@@ -230,13 +230,13 @@ export function CheckoutScreen({
                   height: 26,
                   borderRadius: 6,
                   borderWidth: 2,
-                  borderColor: accepted ? c.teal : c.muted,
-                  backgroundColor: accepted ? c.teal : 'transparent',
+                  borderColor: accepted ? c.primary : c.muted,
+                  backgroundColor: accepted ? c.primary : 'transparent',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                {accepted && <Text style={{ color: c.bg, fontWeight: '900' }}>✓</Text>}
+                {accepted && <Text style={{ color: '#fff', fontWeight: '900' }}>✓</Text>}
               </View>
               <Text style={[ui.body, { flex: 1 }]}>I accept this declaration for every guest ({SAFETY_DECLARATION_VERSION})</Text>
             </Pressable>

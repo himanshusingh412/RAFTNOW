@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { api, ApiError, Availability, SlotView, Stretch, addDays, clock, duration, inr, istDay, mediaUrl, todayIst } from './api';
-import { Banner, Chip, Stepper, c, ui } from './ui';
+import { Banner, Chip, HeroHeader, Icon, IconName, Stepper, Tag, c, ui } from './ui';
 
 const WINDOW_DAYS = 60; // C-03: today to +60 days
 const MAX_GUESTS = 16;
@@ -16,6 +16,19 @@ function dayChip(date: string, today: string) {
     label: d.toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' }),
     sub: d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' }),
   };
+}
+
+/** Labelled row inside the search card. */
+function Field({ icon, label, children, last }: { icon: IconName; label: string; children: React.ReactNode; last?: boolean }) {
+  return (
+    <View style={{ paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: last ? 0 : 1, borderBottomColor: c.line }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+        <Icon name={icon} size={14} color={c.muted} />
+        <Text style={{ color: c.muted, fontSize: 12, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' }}>{label}</Text>
+      </View>
+      {children}
+    </View>
+  );
 }
 
 /** "1 Jul – 15 Sep": a closure's first and last day (its end instant is exclusive). */
@@ -89,73 +102,89 @@ export function ExploreScreen({
 
   const header = (
     <View>
-      <Text style={ui.h1}>Raft the Ganga</Text>
-      <Text style={ui.meta}>Licensed Rishikesh operators · instant confirmation</Text>
-
-      <Text style={ui.label}>Date</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {dates.map((d) => {
-          const l = dayChip(d, today);
-          return <Chip key={d} label={l.label} sub={l.sub} active={d === date} onPress={() => setDate(d)} />;
-        })}
-      </ScrollView>
-
-      <Text style={ui.label}>Stretch</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <Chip label="Any stretch" active={stretchId === null} onPress={() => setStretchId(null)} />
-        {stretches?.map((s) => (
-          <Chip
-            key={s.id}
-            label={s.name.replace(' → Rishikesh', '')}
-            sub={s.status === 'CLOSED' ? 'Closed' : `${s.distance_km} km · ${s.grade.replace(/^Grade\s*/i, '')}`}
-            active={s.id === stretchId}
-            onPress={() => setStretchId(s.id)}
-          />
-        ))}
-      </ScrollView>
-      {selectedStretch?.closure && (
-        <Banner tone="warn">
-          River closed{selectedStretch.closure.until ? ` until ${istDay(new Date(Date.parse(selectedStretch.closure.until) - 1).toISOString())}` : ''}: {selectedStretch.closure.reason}
-        </Banner>
-      )}
-      {upcoming && !selectedStretch?.closure && (
-        <Banner tone="info">
-          {upcoming.river_wide ? 'River' : selectedStretch?.name.replace(' → Rishikesh', '')} closed {closureDays(upcoming.from, upcoming.until)}: {upcoming.reason}
-        </Banner>
-      )}
-
-      <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-        <View>
-          <Text style={ui.label}>Guests</Text>
-          <Stepper label="guests" value={guests} min={1} max={MAX_GUESTS} onChange={setGuests} />
+      <HeroHeader extraBottom={56}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Icon name="waves" size={26} color="#ffffff" strokeWidth={2.4} />
+          <Text style={ui.heroTitle}>
+            Raft<Text style={{ color: c.primaryLight }}>Now</Text>
+          </Text>
         </View>
-        <View style={{ flexDirection: 'row' }}>
-          <Chip label={sort === 'TIME' ? 'Earliest' : 'Cheapest'} active={false} onPress={() => setSort(sort === 'TIME' ? 'PRICE' : 'TIME')} />
-          <Chip label="Private" active={privateOnly} onPress={() => setPrivateOnly(!privateOnly)} />
-        </View>
+        <Text style={[ui.heroSub, { marginTop: 6 }]}>Rishikesh rafting · instant confirmation</Text>
+      </HeroHeader>
+
+      {/* Search card overlapping the hero */}
+      <View style={[ui.card, { marginHorizontal: 16, marginTop: -56, padding: 0, overflow: 'hidden' }]}>
+        <Field icon="calendar" label="Date">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {dates.map((d) => {
+              const l = dayChip(d, today);
+              return <Chip key={d} label={l.label} sub={l.sub} active={d === date} onPress={() => setDate(d)} />;
+            })}
+          </ScrollView>
+        </Field>
+        <Field icon="waves" label="River stretch">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <Chip label="Any stretch" sub="All of Rishikesh" active={stretchId === null} onPress={() => setStretchId(null)} />
+            {stretches?.map((s) => (
+              <Chip
+                key={s.id}
+                label={s.name.replace(' → Rishikesh', '')}
+                sub={s.status === 'CLOSED' ? 'Closed' : `${s.distance_km} km · ${s.grade.replace(/^Grade\s*/i, '')}`}
+                active={s.id === stretchId}
+                onPress={() => setStretchId(s.id)}
+              />
+            ))}
+          </ScrollView>
+        </Field>
+        <Field icon="users" label="Guests" last>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Stepper label="guests" value={guests} min={1} max={MAX_GUESTS} onChange={setGuests} />
+            <Text style={[ui.meta, { flex: 1, textAlign: 'right' }]}>
+              {guests} {guests === 1 ? 'adult' : 'adults'}
+            </Text>
+          </View>
+        </Field>
       </View>
 
-      {err && <Banner tone="error">{err}</Banner>}
-      {allClosed && <Banner tone="warn">No rafting on this day: {data!.slots[0].closure_reason}. Pick another date.</Banner>}
-      <Text style={[ui.label, { marginTop: 20 }]}>
-        {loading ? 'Checking live seats…' : `${results.length} departure${results.length === 1 ? '' : 's'}`}
-      </Text>
+      <View style={{ paddingHorizontal: 16 }}>
+        {selectedStretch?.closure && (
+          <Banner tone="warn">
+            River closed{selectedStretch.closure.until ? ` until ${istDay(new Date(Date.parse(selectedStretch.closure.until) - 1).toISOString())}` : ''}: {selectedStretch.closure.reason}
+          </Banner>
+        )}
+        {upcoming && !selectedStretch?.closure && (
+          <Banner tone="info">
+            {upcoming.river_wide ? 'River' : selectedStretch?.name.replace(' → Rishikesh', '')} closed {closureDays(upcoming.from, upcoming.until)}: {upcoming.reason}
+          </Banner>
+        )}
+        {err && <Banner tone="error">{err}</Banner>}
+        {allClosed && <Banner tone="warn">No rafting on this day: {data!.slots[0].closure_reason}. Pick another date.</Banner>}
+
+        <Text style={{ color: c.text, fontSize: 17, fontWeight: '800', marginTop: 16 }}>
+          {loading ? 'Checking live seats…' : `${results.length} departure${results.length === 1 ? '' : 's'} available`}
+        </Text>
+        <View style={{ flexDirection: 'row', marginTop: 8, marginBottom: 10 }}>
+          <Chip label="Earliest first" active={sort === 'TIME'} onPress={() => setSort('TIME')} />
+          <Chip label="Lowest price" active={sort === 'PRICE'} onPress={() => setSort('PRICE')} />
+          <Chip label="Private raft" active={privateOnly} onPress={() => setPrivateOnly(!privateOnly)} />
+        </View>
+      </View>
     </View>
   );
 
   return (
     <FlatList
       style={ui.screen}
-      contentContainerStyle={ui.pad}
+      contentContainerStyle={{ paddingBottom: 32 }}
       data={results}
       keyExtractor={(s) => s.id}
       ListHeaderComponent={header}
-      refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={c.aqua} />}
+      refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={c.accent} />}
       ListEmptyComponent={
         loading ? (
-          <ActivityIndicator color={c.aqua} style={{ marginTop: 24 }} />
+          <ActivityIndicator color={c.accent} style={{ marginTop: 24 }} />
         ) : !err ? (
-          <View style={ui.card}>
+          <View style={[ui.card, { marginHorizontal: 16 }]}>
             <Text style={ui.body}>No departures fit {guests} guest{guests === 1 ? '' : 's'} on this date.</Text>
             <Text style={[ui.meta, { marginTop: 4 }]}>
               {hiddenFull > 0 ? `${hiddenFull} more ${hiddenFull === 1 ? 'is' : 'are'} full or closed. ` : ''}Try another date or stretch.
@@ -163,45 +192,64 @@ export function ExploreScreen({
           </View>
         ) : null
       }
-      ListFooterComponent={data && results.length > 0 ? <Text style={[ui.meta, { marginTop: 8, fontSize: 12 }]}>{data.note}</Text> : null}
-      renderItem={({ item: s }) => (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`${clock(s.start_time)}, ${s.trip.stretch.name}, ${s.trip.vendor.display_name}, ${inr(s.per_seat_price_paise)} per person, ${s.available_shared_seats} seats left`}
-          onPress={() => onOpen(s, guests, (data?.slots ?? []).filter((x) => x.trip_id === s.trip_id))}
-          style={({ pressed }) => [ui.card, pressed && { borderColor: c.teal }]}
-        >
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            {s.trip.cover_photo_url ? (
-              <Image
-                source={{ uri: mediaUrl(s.trip.cover_photo_url) }}
-                style={{ width: 64, height: 64, borderRadius: 10, marginRight: 12, backgroundColor: c.line }}
-                accessibilityIgnoresInvertColors
-                accessible={false}
-              />
-            ) : null}
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ color: '#fff', fontSize: 20, fontWeight: '900' }}>{clock(s.start_time)}</Text>
-              <Text style={[ui.body, { fontWeight: '700', marginTop: 2 }]} numberOfLines={1}>{s.trip.stretch.name.replace(' → Rishikesh', '')}</Text>
-              <Text style={ui.meta} numberOfLines={1}>
-                {s.trip.vendor.display_name}
-              </Text>
-              {s.trip.vendor.licence_verified && <Text style={ui.badgeOk}>✓ Licensed</Text>}
-              <Text style={ui.meta}>{duration(s.trip.duration_minutes)} · age {s.min_age}{s.max_age ? `–${s.max_age}` : '+'}</Text>
-            </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={{ color: c.aqua, fontSize: 20, fontWeight: '900' }}>{inr(s.per_seat_price_paise)}</Text>
-              <Text style={ui.meta}>per person</Text>
-              <Text style={[ui.meta, { color: s.available_shared_seats <= 4 ? c.warn : c.muted, marginTop: 6 }]}>
-                {s.available_shared_seats} seat{s.available_shared_seats === 1 ? '' : 's'} left
-              </Text>
-              {s.private_raft_price_paise != null && s.available_private_rafts > 0 && (
-                <Text style={ui.meta}>Private {inr(s.private_raft_price_paise)}</Text>
+      ListFooterComponent={data && results.length > 0 ? <Text style={[ui.meta, { marginTop: 4, marginHorizontal: 16, fontSize: 12 }]}>{data.note}</Text> : null}
+      renderItem={({ item: s }) => {
+        const few = s.available_shared_seats <= 6;
+        return (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${clock(s.start_time)}, ${s.trip.stretch.name}, ${s.trip.vendor.display_name}, ${inr(s.per_seat_price_paise)} per person, ${s.available_shared_seats} seats left`}
+            onPress={() => onOpen(s, guests, (data?.slots ?? []).filter((x) => x.trip_id === s.trip_id))}
+            style={({ pressed }) => [ui.card, { marginHorizontal: 16, padding: 12, opacity: pressed ? 0.9 : 1 }]}
+          >
+            <View style={{ flexDirection: 'row' }}>
+              {s.trip.cover_photo_url ? (
+                <Image
+                  source={{ uri: mediaUrl(s.trip.cover_photo_url) }}
+                  style={{ width: 92, height: 104, borderRadius: 8, marginRight: 12, backgroundColor: c.line }}
+                  accessibilityIgnoresInvertColors
+                  accessible={false}
+                />
+              ) : (
+                <View style={{ width: 92, height: 104, borderRadius: 8, marginRight: 12, backgroundColor: c.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+                  <Icon name="waves" size={32} color={c.primary} />
+                </View>
               )}
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: c.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
+                  {s.trip.stretch.name.replace(' → Rishikesh', '')} Rafting
+                </Text>
+                <Text style={[ui.meta, { fontSize: 13 }]} numberOfLines={1}>
+                  by {s.trip.vendor.display_name}
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                  {s.trip.vendor.licence_verified && <Tag label="Licensed" tone="ok" icon="shield" />}
+                  <Tag label={duration(s.trip.duration_minutes)} tone="neutral" />
+                  <Tag label={`Age ${s.min_age}${s.max_age ? `–${s.max_age}` : '+'}`} tone="neutral" />
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 }}>
+                  <Icon name="clock" size={14} color={c.body} />
+                  <Text style={{ color: c.text, fontSize: 14, fontWeight: '700' }}>{clock(s.start_time)}</Text>
+                </View>
+              </View>
             </View>
-          </View>
-        </Pressable>
-      )}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: c.line, marginTop: 10, paddingTop: 10 }}>
+              <View>
+                <Text style={{ color: few ? c.error : c.ok, fontSize: 13, fontWeight: '700' }}>
+                  {few ? `Only ${s.available_shared_seats} seat${s.available_shared_seats === 1 ? '' : 's'} left!` : `${s.available_shared_seats} seats left`}
+                </Text>
+                {s.private_raft_price_paise != null && s.available_private_rafts > 0 && (
+                  <Text style={[ui.meta, { fontSize: 12 }]}>Private raft {inr(s.private_raft_price_paise)}</Text>
+                )}
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ color: c.text, fontSize: 20, fontWeight: '900' }}>{inr(s.per_seat_price_paise)}</Text>
+                <Text style={[ui.meta, { fontSize: 12 }]}>per person · taxes incl.</Text>
+              </View>
+            </View>
+          </Pressable>
+        );
+      }}
     />
   );
 }

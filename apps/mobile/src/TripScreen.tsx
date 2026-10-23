@@ -34,7 +34,7 @@ function Gallery({ photos, title }: { photos: TripDetail['photos']; title: strin
       {photos.length > 1 && (
         <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 6, marginTop: 8 }} accessible accessibilityLabel={`Photo ${index + 1} of ${photos.length}`}>
           {photos.map((p, i) => (
-            <View key={p.id} style={{ width: i === index ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: i === index ? c.aqua : c.line }} />
+            <View key={p.id} style={{ width: i === index ? 16 : 6, height: 6, borderRadius: 3, backgroundColor: i === index ? c.accent : c.line }} />
           ))}
         </View>
       )}
@@ -100,7 +100,7 @@ export function TripScreen({
           </View>
         )}
         {err && <Banner tone="error">{err}</Banner>}
-        {!trip && !err && <ActivityIndicator color={c.aqua} style={{ marginVertical: 16 }} />}
+        {!trip && !err && <ActivityIndicator color={c.accent} style={{ marginVertical: 16 }} />}
 
         <Text style={ui.label}>Departure</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -185,12 +185,12 @@ export function TripScreen({
         )}
       </ScrollView>
 
-      <View style={{ borderTopWidth: 1, borderTopColor: c.line, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: c.bg }}>
+      <View style={{ paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 16, backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.line }}>
         <View style={{ flex: 1 }}>
-          <Text style={ui.meta}>{mode === 'PRIVATE' ? 'Private raft' : `${guests} × ${inr(slot.per_seat_price_paise)}`}</Text>
-          <Text style={{ color: '#fff', fontSize: 22, fontWeight: '900' }}>{inr(total)}</Text>
+          <Text style={{ color: c.text, fontSize: 22, fontWeight: '900' }}>{inr(total)}</Text>
+          <Text style={[ui.meta, { fontSize: 12 }]}>{mode === 'PRIVATE' ? 'Private raft' : `${guests} × ${inr(slot.per_seat_price_paise)}`} · taxes incl.</Text>
         </View>
-        <Button label="Continue" disabled={!canBook} onPress={() => trip && onContinue(slot, mode, guests, trip)} style={{ marginTop: 0, flex: 1 }} />
+        <Button label="Book now" disabled={!canBook} onPress={() => trip && onContinue(slot, mode, guests, trip)} style={{ marginTop: 0, flex: 1 }} />
       </View>
     </View>
   );

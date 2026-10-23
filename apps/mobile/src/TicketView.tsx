@@ -13,7 +13,7 @@ export function TicketView({ ticket, onClose, justBooked, offline }: { ticket: T
         {offline && <Banner tone="warn">Offline copy. The QR is still valid at the river.</Banner>}
         <Card style={{ alignItems: 'center' }}>
           <Image source={{ uri: ticket.qr_data_url }} style={{ width: 240, height: 240, backgroundColor: '#fff', borderRadius: 12 }} resizeMode="contain" accessibilityLabel="Signed booking QR code" />
-          <Text style={{ color: c.aqua, fontSize: 30, fontWeight: '900', letterSpacing: 4, marginTop: 12 }} accessibilityLabel={`Booking code ${ticket.display_code.split('').join(' ')}`}>
+          <Text style={{ color: c.accent, fontSize: 30, fontWeight: '900', letterSpacing: 4, marginTop: 12 }} accessibilityLabel={`Booking code ${ticket.display_code.split('').join(' ')}`}>
             {ticket.display_code}
           </Text>
           <Text style={ui.meta}>{statusLabel(ticket.status)}</Text>

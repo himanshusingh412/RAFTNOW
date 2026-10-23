@@ -15,7 +15,7 @@ import { TicketView } from './src/TicketView';
 import { AccountScreen } from './src/AccountScreen';
 import { OperatorScreen } from './src/OperatorScreen';
 import { clearOffline } from './src/offline';
-import { Button, c, ui } from './src/ui';
+import { Button, HeroHeader, Icon, IconName, c, ui } from './src/ui';
 
 type Tab = 'explore' | 'trips' | 'scan' | 'account';
 type AuthState = { status: 'restoring' } | { status: 'ready'; session: StoredSession | null };
@@ -96,11 +96,11 @@ export default function App() {
 
   const session = auth.session;
   const isOperator = session?.role === 'operator';
-  const tabs: Array<{ id: Tab; label: string }> = [
-    { id: 'explore', label: 'Explore' },
-    { id: 'trips', label: 'My trips' },
-    ...(isOperator ? [{ id: 'scan' as Tab, label: 'Check-in' }] : []),
-    { id: 'account', label: 'Account' },
+  const tabs: Array<{ id: Tab; label: string; icon: IconName }> = [
+    { id: 'explore', label: 'Explore', icon: 'search' },
+    { id: 'trips', label: 'My trips', icon: 'ticket' },
+    ...(isOperator ? [{ id: 'scan' as Tab, label: 'Check-in', icon: 'scan' as IconName }] : []),
+    { id: 'account', label: 'Account', icon: 'user' },
   ];
 
   const confirmSignOut = () =>
@@ -111,8 +111,8 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={ui.screen} edges={['top', 'left', 'right']}>
-        <StatusBar style="light" />
+      {/* No top edge: each screen draws its own header under the status bar. */}
+      <SafeAreaView style={ui.screen} edges={['left', 'right']}>
         <View style={{ flex: 1 }}>
           {ticket ? (
             <TicketView {...ticket} onClose={() => setTicket(null)} />
@@ -151,10 +151,14 @@ export default function App() {
                 (session ? (
                   <MyTripsScreen phone={session.phone} onTicket={(t, offline) => setTicket({ ticket: t, offline })} onExplore={() => setTab('explore')} />
                 ) : (
-                  <View style={[ui.pad, { flex: 1, justifyContent: 'center' }]}>
-                    <Text style={ui.h1}>My trips</Text>
-                    <Text style={[ui.meta, { marginTop: 8 }]}>Sign in with your phone number to see your bookings and tickets.</Text>
-                    <Button label="Sign in" onPress={() => setLogin({ notice: null })} />
+                  <View style={{ flex: 1 }}>
+                    <HeroHeader title="My Trips" subtitle="Bookings and e-tickets" />
+                    <View style={[ui.card, { margin: 16, alignItems: 'center', paddingVertical: 28 }]}>
+                      <Icon name="ticket" size={40} color={c.primary} strokeWidth={1.6} />
+                      <Text style={[ui.h2, { marginTop: 12, marginBottom: 4 }]}>Your trips live here</Text>
+                      <Text style={[ui.meta, { textAlign: 'center' }]}>Log in with your mobile number to see your bookings and tickets.</Text>
+                      <Button label="Login" onPress={() => setLogin({ notice: null })} style={{ alignSelf: 'stretch', marginTop: 16 }} />
+                    </View>
                   </View>
                 ))}
               {tab === 'scan' && isOperator && <OperatorScreen />}
@@ -171,7 +175,10 @@ export default function App() {
         </View>
 
         {!ticket && (
-          <SafeAreaView edges={['bottom']} style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.card }}>
+          <SafeAreaView
+            edges={['bottom']}
+            style={{ flexDirection: 'row', backgroundColor: c.card, borderTopWidth: 1, borderTopColor: c.line, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: -2 }, elevation: 8 }}
+          >
             {tabs.map((t) => (
               <Pressable
                 key={t.id}
@@ -181,10 +188,10 @@ export default function App() {
                   if (t.id === 'explore' && tab === 'explore') setFlow({ screen: 'search' });
                   setTab(t.id);
                 }}
-                style={{ flex: 1, minHeight: 56, alignItems: 'center', justifyContent: 'center' }}
+                style={{ flex: 1, minHeight: 58, alignItems: 'center', justifyContent: 'center', paddingTop: 6 }}
               >
-                <View style={{ width: 24, height: 3, borderRadius: 2, marginBottom: 6, backgroundColor: tab === t.id ? c.teal : 'transparent' }} />
-                <Text style={{ color: tab === t.id ? c.aqua : c.muted, fontWeight: '800', fontSize: 13 }}>{t.label}</Text>
+                <Icon name={t.icon} size={22} color={tab === t.id ? c.primary : c.muted} strokeWidth={tab === t.id ? 2.4 : 2} />
+                <Text style={{ color: tab === t.id ? c.primary : c.muted, fontWeight: tab === t.id ? '800' : '600', fontSize: 12, marginTop: 3 }}>{t.label}</Text>
               </Pressable>
             ))}
           </SafeAreaView>

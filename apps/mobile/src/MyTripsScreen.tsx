@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { api, ApiError, CancelQuote, CustomerBooking, Ticket, inr, istTime, statusLabel } from './api';
 import { loadOffline, saveBookings, saveTicket } from './offline';
-import { Banner, Button, Card, c, ui } from './ui';
+import { Banner, Button, Card, HeroHeader, c, ui } from './ui';
 
 const LIVE = ['CONFIRMED', 'CHECKED_IN'];
 
@@ -100,7 +100,7 @@ export function MyTripsScreen({ phone, onTicket, onExplore }: { phone: string; o
   const item = (b: CustomerBooking) => (
     <Card key={b.id}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Text style={{ color: c.aqua, fontWeight: '900', fontSize: 18, letterSpacing: 2 }}>{b.display_code}</Text>
+        <Text style={{ color: c.accent, fontWeight: '900', fontSize: 18, letterSpacing: 2 }}>{b.display_code}</Text>
         <View style={ui.pill}>
           <Text style={ui.pillText}>{statusLabel(b.status)}</Text>
         </View>
@@ -125,8 +125,9 @@ export function MyTripsScreen({ phone, onTicket, onExplore }: { phone: string; o
   );
 
   return (
-    <ScrollView style={ui.screen} contentContainerStyle={ui.pad} refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={c.aqua} />}>
-      <Text style={ui.h1}>My trips</Text>
+    <ScrollView style={ui.screen} contentContainerStyle={{ paddingBottom: 32 }} refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor="#ffffff" />}>
+      <HeroHeader title="My Trips" subtitle="Bookings, e-tickets and refunds" />
+      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
       {offlineAt && <Banner tone="warn">No connection. Showing trips saved at {istTime(offlineAt)}.</Banner>}
       {err && <Banner tone="error">{err}</Banner>}
       {!bookings && !err && <Text style={ui.meta}>Loading…</Text>}
@@ -143,6 +144,7 @@ export function MyTripsScreen({ phone, onTicket, onExplore }: { phone: string; o
       <Pressable onPress={load} accessibilityRole="button" style={{ minHeight: 44, justifyContent: 'center' }}>
         <Text style={[ui.meta, { textAlign: 'center' }]}>Pull down or tap to refresh</Text>
       </Pressable>
+      </View>
     </ScrollView>
   );
 }

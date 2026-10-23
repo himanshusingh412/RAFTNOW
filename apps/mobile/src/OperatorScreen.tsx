@@ -3,6 +3,7 @@ import { ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-nativ
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { api, ApiError, CheckInResult, ManifestRow, istTime, todayIst } from './api';
 import { s } from './styles';
+import { HeroHeader, c } from './ui';
 
 /**
  * Operator QR check-in with the device camera (expo-camera CameraView barcode
@@ -61,7 +62,9 @@ export function OperatorScreen() {
   };
 
   return (
-    <ScrollView style={s.content}>
+    <ScrollView style={{ flex: 1, backgroundColor: c.bg }} contentContainerStyle={{ paddingBottom: 32 }}>
+      <HeroHeader title="Check-in" subtitle="Scan a ticket or enter the booking code" />
+      <View style={[s.content, { paddingTop: 12 }]}>
       <View style={s.card}>
         <Text style={s.cardTitle}>Scan customer ticket</Text>
         {!permission?.granted ? (
@@ -101,7 +104,7 @@ export function OperatorScreen() {
             value={code}
             onChangeText={(t) => setCode(t.toUpperCase())}
             placeholder="RF······"
-            placeholderTextColor="#8892b0"
+            placeholderTextColor={c.muted}
             autoCapitalize="characters"
             autoCorrect={false}
             maxLength={12}
@@ -121,7 +124,7 @@ export function OperatorScreen() {
       </View>
 
       {result && (
-        <View style={[s.card, { borderColor: result.ok ? '#10b981' : '#f43f5e' }]}>
+        <View style={[s.card, { borderLeftWidth: 4, borderLeftColor: result.ok ? c.ok : c.error }]}>
           <Text style={result.ok ? s.ok : s.error}>{result.title}</Text>
           <Text style={s.meta}>{result.detail}</Text>
         </View>
@@ -137,9 +140,9 @@ export function OperatorScreen() {
         {err && <Text style={s.error}>{err}</Text>}
         {manifest?.length === 0 && <Text style={s.meta}>No bookings today.</Text>}
         {manifest?.map((m) => (
-          <View key={m.id} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#233554' }}>
+          <View key={m.id} style={{ paddingVertical: 8, borderTopWidth: 1, borderTopColor: c.line }}>
             <View style={s.row}>
-              <Text style={{ color: '#64ffda', fontWeight: '800' }}>{m.display_code}</Text>
+              <Text style={{ color: c.primary, fontWeight: '800' }}>{m.display_code}</Text>
               <Text style={s.badge}>{m.status.replace(/_/g, ' ')}</Text>
             </View>
             <Text style={s.meta}>
@@ -147,6 +150,7 @@ export function OperatorScreen() {
             </Text>
           </View>
         ))}
+      </View>
       </View>
     </ScrollView>
   );
