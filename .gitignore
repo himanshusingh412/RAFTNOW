@@ -60,3 +60,6 @@ GoogleService-Info.plist
 # Local leftovers, not part of the project
 apps/ios.pre-regen-*/
 apps/mobile/himanshu/
+.vercel
+.env*
+!.env.example

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "npm ci --workspace=@raftnow/web --include-workspace-root",
+  "buildCommand": "npm run build --workspace=@raftnow/web",
+  "outputDirectory": "apps/web/dist",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://raftnow-api.onrender.com/api/:path*" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

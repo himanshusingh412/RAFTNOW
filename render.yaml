@@ -1,0 +1,72 @@
+# Render Blueprint — RaftNow API + PostgreSQL for the hosted demo.
+#
+# Deploy: https://render.com/deploy?repo=https://github.com/himanshusingh412/RAFTNOW
+# The web app runs on Vercel and proxies /api/* to this service (see vercel.json).
+#
+# DEMO ONLY: APP_ENV=staging keeps developer phone sign-in (AUTH_DEV_BYPASS)
+# available because Firebase OTP and Razorpay are not configured yet. Before
+# real customers use it: APP_ENV=production, AUTH_DEV_BYPASS removed, Firebase,
+# Razorpay and S3 credentials set, and a paid database (free ones expire).
+
+databases:
+  - name: raftnow-db
+    plan: free
+    region: singapore
+    databaseName: raftnow
+    user: raftnow
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: raftnow-api
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: raftnow-db
+          property: connectionString
+      - key: APP_ENV
+        value: staging
+      - key: PORT
+        value: "4000"
+      - key: TRUST_PROXY
+        value: "true"
+      - key: RUN_MIGRATIONS
+        value: "true"
+      # Idempotent: admin account, river stretches and the demo vendor + trip.
+      - key: RUN_SEED
+        value: "true"
+      - key: AUTH_DEV_BYPASS
+        value: "true"
+      - key: SEED_ADMIN_EMAIL
+        value: admin@raftnow.in
+      # Read it in the Render dashboard (Environment tab) to sign in to /admin.
+      - key: SEED_ADMIN_PASSWORD
+        generateValue: true
+      - key: QR_SIGNING_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FIELD_ENCRYPTION_KEY
+        generateValue: true
+      # The free plan has no persistent disk: uploads are lost on each restart.
+      - key: STORAGE_DRIVER
+        value: local
+      - key: STORAGE_LOCAL_DIR
+        value: /app/data/private-uploads
+      - key: STORAGE_PUBLIC_DIR
+        value: /app/data/public-media
+      - key: STORAGE_SIGNING_SECRET
+        generateValue: true
+      # Every browser request arrives through Vercel's proxy, so visitors share
+      # a few client IPs; the per-IP limit is raised to match.
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "600"
+      - key: JOBS_DB_POOL_MAX
+        value: "2"

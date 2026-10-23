@@ -1,0 +1,10 @@
+# CLI deploys (`vercel deploy`) upload the working tree: never send local
+# secrets, uploads or native builds. Git-connected deploys only see commits.
+.env
+.env.*
+!.env.example
+apps/api/data
+apps/mobile/ios
+apps/mobile/android
+**/node_modules
+**/dist

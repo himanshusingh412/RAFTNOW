@@ -25,4 +25,10 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     echo "$OUT" | tail -n 3
   fi
 fi
+
+# Hosted demo (render.yaml): load the idempotent seed so the site has data.
+if [ "${RUN_SEED:-false}" = "true" ]; then
+  echo "[entrypoint] prisma db seed"
+  npx prisma db seed --schema "$SCHEMA" || echo "[entrypoint] seed failed — starting without demo data"
+fi
 exec node /app/apps/api/dist/main.js
