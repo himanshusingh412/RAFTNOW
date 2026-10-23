@@ -1,0 +1,44 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "lint": {
+      "dependsOn": ["^lint"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"]
+    },
+    "test": {
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "NODE_ENV"]
+    },
+    "test:unit": {
+      "cache": false
+    },
+    "test:integration": {
+      "cache": false,
+      "env": ["DATABASE_URL"]
+    },
+    "prisma:generate": {
+      "cache": false
+    },
+    "prisma:migrate": {
+      "cache": false
+    },
+    "prisma:seed": {
+      "cache": false
+    },
+    "prisma:studio": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

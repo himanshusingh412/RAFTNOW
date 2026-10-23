@@ -1,0 +1,774 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// RaftNow Prisma Schema
+//
+// Rules:
+// - All IDs are UUID (generated via gen_random_uuid() in Postgres)
+// - All timestamps are UTC (stored as TIMESTAMPTZ in Postgres)
+// - All monetary values are BigInt paise (1 INR = 100 paise)
+// - All percentage/commission values are Int basis points (1% = 100 bps)
+// - Schema enforces correctness at the DB level where possible
+// ─────────────────────────────────────────────────────────────────────────────
+
+// No custom `output`: the client must be generated next to the hoisted
+// node_modules/@prisma/client (monorepo root). A custom output under apps/api left
+// the root stub in place (PrismaClient typed as `any`, throws at runtime).
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// USERS (Customers — authenticated via Firebase phone OTP)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  firebase_uid String    @unique // Firebase UID from ID token verification
+  phone        String    @unique // E.164 format, e.g. +919876543210
+  full_name    String?
+  email        String?   @unique
+  avatar_key   String?
+  push_token   String?
+  deleted_at   DateTime? // Soft delete — account deletion support
+  created_at   DateTime  @default(now()) @db.Timestamptz
+  updated_at   DateTime  @updatedAt @db.Timestamptz
+
+  bookings      Booking[]
+  notifications Notification[]
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ADMINS (Internal RaftNow team — email+password+TOTP 2FA)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum AdminRole {
+  SUPER_ADMIN // Everything, including admin management
+  OPS // River closures, vendor review, booking operations
+  FINANCE // Refunds, payouts, Razorpay Route onboarding
+}
+
+model Admin {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String    @unique
+  name                String?
+  password_hash       String // bcrypt (cost 12) — never logged, never returned
+  role                AdminRole
+  totp_secret         String? // AES-256-GCM encrypted TOTP secret; null until 2FA enrolment starts
+  totp_enabled        Boolean   @default(false)
+  totp_last_used_step Int? // Last accepted TOTP time-step — blocks code replay
+  active              Boolean   @default(true)
+  failed_login_count  Int       @default(0)
+  locked_until        DateTime? @db.Timestamptz // Temporary lockout after repeated failures
+  token_version       Int       @default(0) // Bumped on logout/password change — invalidates issued JWTs
+  last_login_at       DateTime? @db.Timestamptz
+  created_at          DateTime  @default(now()) @db.Timestamptz
+  updated_at          DateTime  @updatedAt @db.Timestamptz
+
+  audit_logs AuditLog[]
+
+  @@map("admins")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VENDORS (Rafting operators)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum VendorStatus {
+  DRAFT
+  UNDER_REVIEW
+  LIVE
+  SUSPENDED
+}
+
+model Vendor {
+  id                  String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  legal_name          String
+  display_name        String
+  description         String?
+  owner_name          String
+  phone               String // E.164
+  email               String
+  address             String // Street address (line 1-2)
+  address_city        String?
+  address_state       String?
+  address_postal_code String?
+  logo_key            String? // S3 key for logo image
+  status              VendorStatus @default(DRAFT)
+  rejection_reason    String?
+
+  business_type String? // Razorpay Route business_type, e.g. proprietorship, partnership, private_limited
+
+  // Licence details (nullable while onboarding is in DRAFT)
+  licence_number      String?
+  licence_expiry      DateTime? @db.Timestamptz
+  licence_verified    Boolean   @default(false)
+  licence_verified_at DateTime? @db.Timestamptz
+  licence_verified_by String?   @db.Uuid // Admin ID who verified
+
+  // Tax compliance
+  pan       String? // AES-256-GCM encrypted at rest — never logged
+  pan_last4 String? // For masked display only
+  gstin     String?
+
+  // Banking (masked on read, never logged)
+  bank_account_number      String? // AES-256-GCM encrypted at rest — never logged
+  bank_account_last4       String? // For masked display only
+  bank_account_holder_name String?
+  ifsc                     String?
+  bank_account_verified    Boolean @default(false)
+
+  // Razorpay Route linked account
+  razorpay_linked_account_id String? // acc_... created by admin after KYC approval
+  razorpay_stakeholder_id    String? // sth_...
+  razorpay_route_product_id  String? // acc_prd_...
+  razorpay_kyc_status        String? // Route product activation_status as last reported by Razorpay
+  razorpay_onboarded_at      DateTime? @db.Timestamptz
+
+  // Approval timeline
+  submitted_at      DateTime? @db.Timestamptz
+  approved_at       DateTime? @db.Timestamptz
+  suspended_at      DateTime? @db.Timestamptz
+  suspension_reason String?
+  reviewed_by       String?   @db.Uuid // Admin ID of last review decision
+  review_notes      String?
+
+  // Reliability score (affected by vendor cancellations)
+  reliability_score Int @default(100) // 0-100
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  members     VendorMember[]
+  documents   VendorDocument[]
+  commissions VendorCommission[]
+  trips       Trip[]
+  transfers   Transfer[]
+
+  @@map("vendors")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VENDOR MEMBERS (Staff within a vendor account)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum VendorMemberRole {
+  OWNER
+  MANAGER
+  GUIDE
+}
+
+model VendorMember {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendor_id    String           @db.Uuid
+  firebase_uid String           @unique // Firebase UID (phone OTP)
+  phone        String // E.164
+  name         String
+  role         VendorMemberRole
+  active       Boolean          @default(true)
+  created_at   DateTime         @default(now()) @db.Timestamptz
+  updated_at   DateTime         @updatedAt @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendor_id], references: [id])
+
+  @@map("vendor_members")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VENDOR DOCUMENTS (KYC — stored in private S3 bucket)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum DocumentType {
+  LICENCE
+  PAN
+  GSTIN_CERTIFICATE
+  CANCELLED_CHEQUE
+  BANK_STATEMENT
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model VendorDocument {
+  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendor_id        String         @db.Uuid
+  type             DocumentType
+  s3_key           String // Private storage key — never exposed publicly; access via time-limited signed URL only
+  storage_driver   String         @default("local") // "s3" | "local"
+  original_name    String
+  content_type     String
+  size_bytes       Int
+  sha256           String
+  status           DocumentStatus @default(PENDING)
+  reviewed_by      String?        @db.Uuid
+  reviewed_at      DateTime?      @db.Timestamptz
+  rejection_reason String?
+  uploaded_by      String?        @db.Uuid // VendorMember ID
+  uploaded_at      DateTime       @default(now()) @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendor_id], references: [id])
+
+  @@index([vendor_id, type])
+  @@map("vendor_documents")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// VENDOR COMMISSIONS (Snapshotted at booking time)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model VendorCommission {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendor_id      String    @db.Uuid
+  commission_bps Int // Platform commission in basis points (e.g. 1000 = 10%)
+  effective_from DateTime  @db.Timestamptz
+  effective_to   DateTime? @db.Timestamptz // Null = still active
+  set_by_admin   String    @db.Uuid // Admin ID who set this
+  created_at     DateTime  @default(now()) @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendor_id], references: [id])
+
+  @@map("vendor_commissions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STRETCHES (River segments — master data, editable by admin)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Stretch {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name             String   @unique // e.g. "Shivpuri → Rishikesh"
+  distance_km      Decimal  @db.Decimal(5, 1)
+  grade            String // e.g. "Grade III-IV"
+  duration_minutes Int // Typical rafting duration
+  put_in_point     String // Starting point name
+  take_out_point   String // Ending point name
+  min_age          Int      @default(14)
+  max_age          Int?
+  active           Boolean  @default(true)
+  created_at       DateTime @default(now()) @db.Timestamptz
+  updated_at       DateTime @updatedAt @db.Timestamptz
+
+  trips    Trip[]
+  closures Closure[]
+
+  @@map("stretches")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLOSURES (River/stretch closures — admin initiated)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// EMERGENCY: unplanned (water level, accident), starts immediately.
+/// SEASON: planned off-season (monsoon) on the season calendar, scheduled ahead.
+enum ClosureKind {
+  EMERGENCY
+  SEASON
+}
+
+model Closure {
+  id                      String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  kind                    ClosureKind @default(EMERGENCY)
+  stretch_id              String?     @db.Uuid // Null = entire river closure
+  starts_at               DateTime    @db.Timestamptz
+  ends_at                 DateTime?   @db.Timestamptz // Null = closed until explicitly reopened
+  reason                  String
+  created_by              String      @db.Uuid // Admin ID
+  created_at              DateTime    @default(now()) @db.Timestamptz
+  revoked_at              DateTime?   @db.Timestamptz // Null = still active
+  revoked_by              String?     @db.Uuid // Admin ID who reopened
+  revoke_reason           String?
+  affected_bookings_count Int? // Set once affected bookings have been cancelled
+  bookings_processed_at   DateTime?   @db.Timestamptz
+
+  stretch Stretch? @relation(fields: [stretch_id], references: [id])
+
+  @@index([stretch_id, starts_at, ends_at])
+  @@index([kind, starts_at])
+  @@map("closures")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRIPS (Vendor's rafting offering on a stretch)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TripStatus {
+  DRAFT
+  LIVE
+  HIDDEN
+}
+
+model Trip {
+  id                       String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendor_id                String      @db.Uuid
+  stretch_id               String      @db.Uuid
+  title                    String
+  description              String
+  duration_minutes         Int // Actual rafting duration
+  inclusions               String[]
+  exclusions               String[]
+  meeting_point            String
+  meeting_lat              Decimal?    @db.Decimal(9, 6)
+  meeting_lng              Decimal?    @db.Decimal(9, 6)
+  min_age                  Int         @default(14)
+  max_age                  Int?
+  raft_capacity            Int // Max guests per raft
+  per_seat_price_paise     BigInt // Integer paise — never decimal
+  private_raft_price_paise BigInt? // Null = private raft not offered
+  status                   TripStatus  @default(DRAFT)
+  // Admin hide (A-10): set while RaftNow has taken the trip off sale. The vendor
+  // cannot republish it; unhiding restores admin_hidden_prev_status.
+  admin_hidden_at          DateTime?   @db.Timestamptz
+  admin_hidden_reason      String?
+  admin_hidden_prev_status TripStatus?
+  created_at               DateTime    @default(now()) @db.Timestamptz
+  updated_at               DateTime    @updatedAt @db.Timestamptz
+
+  vendor         Vendor         @relation(fields: [vendor_id], references: [id])
+  stretch        Stretch        @relation(fields: [stretch_id], references: [id])
+  photos         TripPhoto[]
+  slot_templates SlotTemplate[]
+  slots          Slot[]
+
+  @@index([vendor_id, status])
+  @@index([stretch_id, status])
+  @@map("trips")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRIP PHOTOS (Max 8 per trip)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model TripPhoto {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  trip_id    String   @db.Uuid
+  s3_key     String // Public CDN key
+  caption    String?
+  position   Int      @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  trip Trip @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+
+  @@index([trip_id, position])
+  @@map("trip_photos")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SLOT TEMPLATES (Recurring departure time patterns defined by vendors)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SlotTemplate {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  trip_id        String   @db.Uuid
+  departure_time String // HH:MM in IST (stored as string, applied in IST tz)
+  days_of_week   Int[] // [0-6] 0=Sunday, 6=Saturday. Empty = every day
+  rafts_count    Int // Number of rafts per departure
+  active         Boolean  @default(true)
+  created_at     DateTime @default(now()) @db.Timestamptz
+  updated_at     DateTime @updatedAt @db.Timestamptz
+
+  trip Trip @relation(fields: [trip_id], references: [id], onDelete: Cascade)
+
+  @@map("slot_templates")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SLOTS (Actual bookable departure instances — generated from templates)
+//
+// CRITICAL: This is the inventory table.
+// seats_held and private_rafts_held are modified only under a row-level lock.
+// The database CHECK constraints are the backstop against overbooking.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum SlotStatus {
+  OPEN
+  BLOCKED
+  CLOSED
+}
+
+model Slot {
+  id                   String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  trip_id              String     @db.Uuid
+  start_time           DateTime   @db.Timestamptz // UTC
+  end_time             DateTime   @db.Timestamptz // UTC
+  total_rafts          Int // Number of physical rafts available
+  raft_capacity        Int // Seats per raft (snapshotted from trip at generation)
+  total_seats          Int // Computed: total_rafts × raft_capacity
+  seats_booked         Int        @default(0) // Confirmed or checked-in
+  seats_held           Int        @default(0) // PENDING_PAYMENT hold
+  private_rafts_booked Int        @default(0)
+  private_rafts_held   Int        @default(0)
+  status               SlotStatus @default(OPEN)
+  blocked_reason       String?
+  generated_from       String?    @db.Uuid // SlotTemplate ID used to generate this slot
+  created_at           DateTime   @default(now()) @db.Timestamptz
+  updated_at           DateTime   @updatedAt @db.Timestamptz
+
+  trip     Trip      @relation(fields: [trip_id], references: [id])
+  bookings Booking[]
+
+  // One departure per trip per instant — makes template-based generation idempotent
+  @@unique([trip_id, start_time])
+  // Performance indexes for availability queries and hold expiry job
+  @@index([trip_id, start_time, status])
+  @@index([start_time, status])
+  @@map("slots")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOKINGS
+//
+// CRITICAL STATE MACHINE:
+// PENDING_PAYMENT → EXPIRED (hold expired, no payment)
+// PENDING_PAYMENT → CONFIRMED (payment captured via webhook)
+// CONFIRMED → CHECKED_IN (vendor QR scan)
+// CONFIRMED → CANCELLED_CUSTOMER / CANCELLED_VENDOR / CANCELLED_ADMIN
+// CHECKED_IN → COMPLETED (auto ~2h after slot end)
+// CONFIRMED → NO_SHOW (vendor marks no-show)
+// CONFIRMED/CHECKED_IN → DISPUTED
+// Any non-terminal → CANCELLED_ADMIN (admin force-cancel)
+//
+// Every transition is validated + recorded in BookingEvent.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum BookingStatus {
+  PENDING_PAYMENT
+  EXPIRED
+  CONFIRMED
+  CHECKED_IN
+  COMPLETED
+  NO_SHOW
+  CANCELLED_CUSTOMER
+  CANCELLED_VENDOR
+  CANCELLED_ADMIN
+  DISPUTED
+}
+
+enum BookingMode {
+  SHARED
+  PRIVATE
+}
+
+model Booking {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id        String      @db.Uuid
+  slot_id        String      @db.Uuid
+  booking_code   String      @unique // 6-char safe alphabet
+  mode           BookingMode
+  seat_count     Int // For SHARED: number of seats; for PRIVATE: 1 (the raft)
+  rafts_required Int // Rafts consumed by this booking
+
+  // Price snapshot — frozen at booking time, never recalculated
+  per_seat_price_paise     BigInt
+  private_raft_price_paise BigInt?
+  amount_paise             BigInt // Total customer payment
+
+  // Commission snapshot — never modified after booking
+  commission_bps            Int
+  platform_commission_paise BigInt
+  vendor_payout_paise       BigInt
+
+  status          BookingStatus @default(PENDING_PAYMENT)
+  hold_expires_at DateTime      @db.Timestamptz // PENDING_PAYMENT expires here
+
+  // Safety declaration
+  safety_declaration_version     String
+  safety_declaration_accepted_at DateTime @db.Timestamptz
+
+  // Contact info (for notifications)
+  contact_name  String
+  contact_phone String // E.164
+
+  // Cancellation
+  cancelled_at         DateTime? @db.Timestamptz
+  cancellation_reason  String?
+  cancellation_trigger String? // CancellationTrigger enum value
+  cancelled_by         String?   @db.Uuid // Actor ID (customer/vendor member/admin)
+
+  // Completion
+  confirmed_at  DateTime? @db.Timestamptz
+  checked_in_at DateTime? @db.Timestamptz
+  checked_in_by String?   @db.Uuid // VendorMember ID who scanned
+  completed_at  DateTime? @db.Timestamptz
+
+  // Dispute
+  disputed_at    DateTime? @db.Timestamptz
+  dispute_reason String?
+
+  // Idempotency — prevents duplicate booking on retry
+  idempotency_key String @unique
+
+  created_at DateTime @default(now()) @db.Timestamptz
+  updated_at DateTime @updatedAt @db.Timestamptz
+
+  user     User           @relation(fields: [user_id], references: [id])
+  slot     Slot           @relation(fields: [slot_id], references: [id])
+  guests   BookingGuest[]
+  events   BookingEvent[]
+  payments Payment[]
+  transfer Transfer?
+  refunds  Refund[]
+
+  // Indexes for common queries
+  @@index([user_id, created_at])
+  @@index([slot_id, status])
+  @@index([status, hold_expires_at]) // For hold expiry job
+  @@index([booking_code])
+  @@map("bookings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOKING GUESTS (Individual guest details — age validated pre-payment)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model BookingGuest {
+  id         String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id String @db.Uuid
+  position   Int // 0 = lead guest (booker)
+  name       String
+  age        Int
+
+  booking Booking @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+
+  @@unique([booking_id, position])
+  @@map("booking_guests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOOKING EVENTS (Immutable timeline — every state transition recorded)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model BookingEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id  String   @db.Uuid
+  event_type  String // e.g. "CONFIRMED", "CANCELLED_CUSTOMER", "CHECKED_IN"
+  from_status String?
+  to_status   String
+  actor_type  String // "CUSTOMER" | "VENDOR" | "ADMIN" | "SYSTEM"
+  actor_id    String?  @db.Uuid
+  metadata    Json     @default("{}")
+  created_at  DateTime @default(now()) @db.Timestamptz
+
+  booking Booking @relation(fields: [booking_id], references: [id])
+
+  @@index([booking_id, created_at])
+  @@map("booking_events")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PAYMENTS (Razorpay order/payment tracking — independent from booking)
+//
+// Webhook events are authoritative — never trust frontend payment claims.
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+}
+
+model Payment {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id          String        @db.Uuid
+  razorpay_order_id   String        @unique
+  razorpay_payment_id String? // Set on capture
+  amount_paise        BigInt
+  currency            String        @default("INR")
+  status              PaymentStatus @default(CREATED)
+  captured_at         DateTime?     @db.Timestamptz
+  failed_at           DateTime?     @db.Timestamptz
+  failure_reason      String?
+  created_at          DateTime      @default(now()) @db.Timestamptz
+  updated_at          DateTime      @updatedAt @db.Timestamptz
+
+  booking Booking  @relation(fields: [booking_id], references: [id])
+  refunds Refund[]
+
+  @@index([booking_id])
+  @@index([status, created_at])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TRANSFERS (Vendor payout via Razorpay Route)
+//
+// Flow: ON_HOLD (created at booking confirm) → RELEASED (24h after slot ends)
+//       → SETTLED (Razorpay settles to bank) | REVERSED (if refund needed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TransferStatus {
+  CREATED
+  ON_HOLD
+  PROCESSING // Claimed by the release job; gateway call in flight (prevents double transfer)
+  RELEASED
+  SETTLED
+  REVERSED
+  FAILED
+}
+
+model Transfer {
+  id                     String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id             String         @unique @db.Uuid
+  vendor_id              String         @db.Uuid
+  linked_account_id      String? // Razorpay linked account ID — resolved at release time
+  amount_paise           BigInt // Current vendor payout (may be reduced by partial refunds)
+  original_amount_paise  BigInt? // Vendor payout at confirmation time
+  status                 TransferStatus @default(ON_HOLD)
+  razorpay_transfer_id   String?        @unique
+  razorpay_settlement_id String?
+  utr                    String? // UTR number when settled
+  hold_reason            String? // If manually held by admin
+  release_at             DateTime       @db.Timestamptz // Scheduled release time
+  released_at            DateTime?      @db.Timestamptz
+  settled_at             DateTime?      @db.Timestamptz
+  reversed_at            DateTime?      @db.Timestamptz
+  failed_at              DateTime?      @db.Timestamptz
+  retry_count            Int            @default(0)
+  claimed_at             DateTime?      @db.Timestamptz
+  last_error             String?
+  reversed_amount_paise  BigInt?
+  razorpay_reversal_id   String?        @unique
+  created_at             DateTime       @default(now()) @db.Timestamptz
+  updated_at             DateTime       @updatedAt @db.Timestamptz
+
+  booking Booking @relation(fields: [booking_id], references: [id])
+  vendor  Vendor  @relation(fields: [vendor_id], references: [id])
+
+  @@index([status, release_at]) // For payout release job
+  @@map("transfers")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REFUNDS (Customer refunds via Razorpay)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum RefundStatus {
+  PENDING // Queued, not yet submitted to Razorpay
+  PROCESSING // Submitted (or submission in flight) — awaiting refund.processed webhook
+  PROCESSED
+  FAILED
+}
+
+model Refund {
+  id                    String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  booking_id            String       @db.Uuid
+  payment_id            String?      @db.Uuid // Which payment is being refunded
+  razorpay_refund_id    String?      @unique
+  amount_paise          BigInt
+  reversal_amount_paise BigInt? // Vendor transfer reversal amount
+  reason                String // RefundReason enum value
+  status                RefundStatus @default(PENDING)
+  initiated_by_type     String // "CUSTOMER" | "VENDOR" | "ADMIN" | "SYSTEM"
+  initiated_by_id       String?      @db.Uuid
+  failure_reason        String?
+  idempotency_key       String       @unique // e.g. "cancel:<booking>", "closure:<closure>:<booking>" — one refund per cause
+  attempt_count         Int          @default(0)
+  last_attempt_at       DateTime?    @db.Timestamptz
+  submitted_at          DateTime?    @db.Timestamptz
+  processed_at          DateTime?    @db.Timestamptz
+  created_at            DateTime     @default(now()) @db.Timestamptz
+  updated_at            DateTime     @updatedAt @db.Timestamptz
+
+  booking Booking  @relation(fields: [booking_id], references: [id])
+  payment Payment? @relation(fields: [payment_id], references: [id])
+
+  @@index([booking_id])
+  @@index([status, created_at])
+  @@map("refunds")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WEBHOOK EVENTS (Razorpay webhooks — idempotent processing)
+//
+// gateway_event_id is the uniqueness key — processing a duplicate webhook
+// must be a no-op. Stored BEFORE processing.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model WebhookEvent {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  gateway          String    @default("razorpay")
+  gateway_event_id String    @unique // Razorpay event ID — uniqueness constraint
+  event_type       String // e.g. "payment.captured", "refund.processed"
+  payload          Json // Full webhook payload
+  processed_at     DateTime? @db.Timestamptz // Null = pending/processing
+  processing_error String? // Error message if processing failed
+  attempts         Int       @default(0)
+  last_attempt_at  DateTime? @db.Timestamptz
+  created_at       DateTime  @default(now()) @db.Timestamptz
+
+  @@index([event_type, created_at])
+  @@index([processed_at, created_at])
+  @@map("webhook_events")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS (Sent to users/vendors)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum NotificationStatus {
+  PENDING // Waiting for (re)delivery
+  SENT // Accepted by provider
+  FAILED // Gave up after max attempts
+  SKIPPED // No provider configured / no recipient address — recorded, not delivered
+}
+
+model Notification {
+  id                  String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id             String?            @db.Uuid // Null = vendor notification
+  vendor_id           String?            @db.Uuid
+  channel             String // "PUSH" | "SMS" | "EMAIL" | "WHATSAPP"
+  event               String // NotificationEvent enum value
+  template            String // Template key
+  data                Json               @default("{}")
+  status              NotificationStatus @default(PENDING)
+  attempts            Int                @default(0)
+  next_attempt_at     DateTime?          @default(now()) @db.Timestamptz
+  provider            String?
+  provider_message_id String?
+  idempotency_key     String?            @unique // Prevents duplicate notifications for the same event
+  sent_at             DateTime?          @db.Timestamptz
+  failed_at           DateTime?          @db.Timestamptz
+  error               String?
+  created_at          DateTime           @default(now()) @db.Timestamptz
+  updated_at          DateTime           @default(now()) @updatedAt @db.Timestamptz
+
+  user User? @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@index([vendor_id, created_at])
+  @@index([status, next_attempt_at])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AUDIT LOGS (Immutable audit trail for all significant state changes)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  admin_id    String?  @db.Uuid // Null = system action
+  actor_type  String // "ADMIN" | "VENDOR" | "CUSTOMER" | "SYSTEM"
+  actor_id    String?  @db.Uuid
+  action      String // e.g. "VENDOR_APPROVED", "BOOKING_REFUNDED", "RIVER_CLOSED"
+  entity_type String // e.g. "Vendor", "Booking", "Stretch"
+  entity_id   String   @db.Uuid
+  data        Json     @default("{}")
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now()) @db.Timestamptz
+
+  admin Admin? @relation(fields: [admin_id], references: [id])
+
+  @@index([entity_type, entity_id, created_at])
+  @@index([actor_id, created_at])
+  @@map("audit_logs")
+}

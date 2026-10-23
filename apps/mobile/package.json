@@ -1,0 +1,39 @@
+{
+  "name": "@raftnow/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@expo-google-fonts/inter": "^0.4.2",
+    "@expo-google-fonts/sora": "^0.4.2",
+    "@raftnow/shared": "*",
+    "@react-native-firebase/app": "26.4.0",
+    "@react-native-firebase/auth": "26.4.0",
+    "expo": "~57.0.30",
+    "expo-build-properties": "~57.0.22",
+    "expo-camera": "~57.0.6",
+    "expo-dev-client": "~57.0.20",
+    "expo-file-system": "~57.0.7",
+    "expo-font": "~57.0.4",
+    "expo-secure-store": "~57.0.4",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-qrcode-svg": "^6.3.26",
+    "react-native-razorpay": "3.0.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  }
+}

@@ -1,0 +1,104 @@
+# RaftNow local stack: PostgreSQL 16, Redis 7, API (NestJS), Web (Vite build + Nginx)
+#
+# Secrets come from ./.env (copy .env.example). The defaults below are
+# DEVELOPMENT-ONLY placeholders; the API refuses to start with them when
+# APP_ENV=production.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: raftnow_postgres
+    environment:
+      POSTGRES_DB: raftnow
+      POSTGRES_USER: raftnow
+      POSTGRES_PASSWORD: raftnow_dev
+    ports:
+      - "5434:5432"
+    volumes:
+      - raftnow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raftnow -d raftnow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: raftnow_redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - raftnow_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: raftnow_api
+    ports:
+      - "4000:4000"
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      PORT: 4000
+      DATABASE_URL: "postgresql://raftnow:raftnow_dev@postgres:5432/raftnow?schema=public&connection_limit=20"
+      REDIS_URL: "redis://redis:6379"
+      RUN_MIGRATIONS: "true"
+      TRUST_PROXY: "true"
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost,http://localhost:3000}
+      QR_SIGNING_SECRET: ${QR_SIGNING_SECRET:-dev-only-qr-signing-secret-0000000000000000}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-admin-jwt-secret-00000000000000000000}
+      FIELD_ENCRYPTION_KEY: ${FIELD_ENCRYPTION_KEY:-ZGV2LW9ubHktZmllbGQtZW5jcnlwdGlvbi1rZXkhISE=}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      STORAGE_LOCAL_DIR: /app/data/private-uploads
+      STORAGE_SIGNING_SECRET: ${STORAGE_SIGNING_SECRET:-dev-only-storage-signing-secret-000000000000}
+      S3_REGION: ${S3_REGION:-}
+      S3_BUCKET_PRIVATE: ${S3_BUCKET_PRIVATE:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      # Developer phone sign-in without Firebase (refused when APP_ENV=production)
+      AUTH_DEV_BYPASS: ${AUTH_DEV_BYPASS:-true}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL:-}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      FAST2SMS_API_KEY: ${FAST2SMS_API_KEY:-}
+      BOOKING_HOLD_TTL_MINUTES: ${BOOKING_HOLD_TTL_MINUTES:-10}
+      DEFAULT_COMMISSION_BPS: ${DEFAULT_COMMISSION_BPS:-1000}
+      TRANSFER_HOLD_HOURS: ${TRANSFER_HOLD_HOURS:-24}
+    volumes:
+      - raftnow_private_uploads:/app/data/private-uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY:-}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN:-}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID:-}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-}
+    container_name: raftnow_web
+    ports:
+      - "80:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  raftnow_postgres_data:
+  raftnow_redis_data:
+  raftnow_private_uploads:

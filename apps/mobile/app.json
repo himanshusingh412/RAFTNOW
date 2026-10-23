@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "RaftNow",
+    "slug": "raftnow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.raftnow.app"
+    },
+    "android": {
+      "package": "com.raftnow.app",
+      "permissions": [
+        "android.permission.CAMERA"
+      ]
+    },
+    "web": {},
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow RaftNow to scan QR tickets for passenger check-in."
+        }
+      ]
+    ]
+  }
+}

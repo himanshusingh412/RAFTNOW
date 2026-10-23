@@ -1,0 +1,14 @@
+# Never send host build artefacts or dependencies into the image: host
+# node_modules (macOS binaries) would overwrite the Linux ones installed by npm ci.
+**/node_modules
+**/dist
+**/.turbo
+**/.expo
+**/coverage
+**/*.log
+**/.env
+**/.env.*
+!**/.env.example
+.git
+apps/mobile
+data

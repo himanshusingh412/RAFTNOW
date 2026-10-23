@@ -1,0 +1,62 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+.expo/
+
+# Environment files — NEVER commit real secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Turbo
+.turbo/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Prisma
+# (keep schema.prisma and migrations, ignore generated client)
+
+# Mobile
+android/
+ios/
+
+# Uploads (local dev)
+**/data/uploads/
+
+# Test coverage
+coverage/
+
+# Misc
+*.pem
+.env*.local
+
+# Local storage driver: private KYC documents and public trip photos
+**/data/private-uploads/
+**/data/public-media/
+
+# Firebase native config (per environment, never committed)
+google-services.json
+GoogleService-Info.plist
+
+# Local leftovers, not part of the project
+apps/ios.pre-regen-*/
+apps/mobile/himanshu/

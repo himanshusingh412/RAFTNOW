@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 900" preserveAspectRatio="xMidYMid slice">
+  <!-- RaftNow original illustration: the Ganga gorge above Rishikesh, a suspension bridge and a raft in the rapids. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f6f8f"/>
+      <stop offset=".22" stop-color="#6aaac2"/>
+      <stop offset=".5" stop-color="#cfe7e6"/>
+      <stop offset="1" stop-color="#f3ead2"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="440" cy="190" r="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff6dc" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#fff6dc" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="river" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8fd6d6"/>
+      <stop offset=".35" stop-color="#3fb1bd"/>
+      <stop offset="1" stop-color="#11697c"/>
+    </linearGradient>
+    <linearGradient id="hillL" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b6e57"/>
+      <stop offset="1" stop-color="#1d4a3c"/>
+    </linearGradient>
+    <linearGradient id="hillR" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#376a55"/>
+      <stop offset="1" stop-color="#1b4538"/>
+    </linearGradient>
+    <linearGradient id="raft" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff9a4d"/>
+      <stop offset="1" stop-color="#f26a1b"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="600" height="900" fill="url(#sky)"/>
+  <rect width="600" height="900" fill="url(#sun)"/>
+
+  <!-- distant Himalayan foothills -->
+  <path d="M0 250 L60 205 L110 228 L170 168 L235 222 L290 186 L345 230 L410 160 L470 214 L530 182 L600 226 L600 380 L0 380 Z" fill="#9cc3cc"/>
+  <path d="M0 292 L70 250 L130 276 L200 236 L265 282 L330 250 L395 288 L455 246 L520 274 L600 252 L600 400 L0 400 Z" fill="#79a7a6"/>
+  <path d="M0 318 L80 288 L150 312 L230 286 L300 318 L370 292 L450 318 L530 290 L600 308 L600 420 L0 420 Z" fill="#5d8f84"/>
+
+  <!-- valley floor -->
+  <path d="M0 400 L600 400 L600 900 L0 900 Z" fill="#234d3e"/>
+  <path d="M0 600 C120 560 220 470 268 404 L332 404 C380 470 480 560 600 590 L600 900 L0 900 Z" fill="#2a5a48"/>
+  <!-- forested valley sides -->
+  <path d="M0 330 C70 320 130 340 175 360 C215 378 245 392 268 404 L240 470 C180 520 120 560 0 600 Z" fill="url(#hillL)"/>
+  <path d="M600 322 C530 318 470 336 425 356 C385 374 352 392 332 404 L362 470 C430 520 500 560 600 590 Z" fill="url(#hillR)"/>
+  <g fill="#244f40" opacity=".9">
+    <path d="M34 352 l10 -30 l10 30 Z M60 360 l9 -26 l9 26 Z M96 368 l11 -32 l11 32 Z M132 378 l9 -26 l9 26 Z M168 388 l8 -22 l8 22 Z"/>
+    <path d="M566 346 l-10 -30 l-10 30 Z M534 356 l-9 -26 l-9 26 Z M500 364 l-11 -32 l-11 32 Z M466 376 l-9 -26 l-9 26 Z M432 388 l-8 -22 l-8 22 Z"/>
+  </g>
+
+  <!-- the Ganga, edged by white-sand ghats -->
+  <path d="M276 398 C290 396 312 396 326 398 C352 440 420 520 520 600 C560 640 600 660 600 680 L600 900 L0 900 L0 690 C60 640 140 590 190 540 C240 490 262 440 276 398 Z" fill="none" stroke="#e9dcb8" stroke-width="16" stroke-linejoin="round" opacity=".9"/>
+  <path d="M276 398 C290 396 312 396 326 398 C352 440 420 520 520 600 C560 640 600 660 600 680 L600 900 L0 900 L0 690 C60 640 140 590 190 540 C240 490 262 440 276 398 Z" fill="url(#river)"/>
+
+  <!-- suspension bridge -->
+  <g stroke="#f6f1e4" stroke-linecap="round" fill="none" opacity=".95">
+    <path d="M212 364 L388 364" stroke-width="3"/>
+    <path d="M222 332 Q300 372 378 332" stroke-width="1.6"/>
+    <path d="M222 332 L206 364 M378 332 L394 364" stroke-width="1.2"/>
+    <path d="M246 342 V364 M270 350 V364 M300 352 V364 M330 350 V364 M354 342 V364" stroke-width=".9"/>
+  </g>
+  <g fill="#f6f1e4">
+    <path d="M216 366 V336 L222 326 L228 336 V366 Z"/>
+    <path d="M372 366 V336 L378 326 L384 336 V366 Z"/>
+  </g>
+
+  <!-- rapids -->
+  <g fill="none" stroke="#ffffff" stroke-linecap="round">
+    <path d="M236 470 q16 -6 32 0 t32 0" stroke-width="2" opacity=".55"/>
+    <path d="M300 452 q12 -5 24 0 t24 0" stroke-width="1.6" opacity=".5"/>
+    <path d="M150 610 q22 -9 44 0 t44 0 t44 0" stroke-width="3" opacity=".6"/>
+    <path d="M330 640 q24 -10 48 0 t48 0" stroke-width="3" opacity=".55"/>
+    <path d="M40 720 q30 -12 60 0 t60 0 t60 0" stroke-width="4" opacity=".55"/>
+    <path d="M300 760 q30 -12 60 0 t60 0 t60 0 t60 0" stroke-width="4" opacity=".5"/>
+    <path d="M0 830 q36 -14 72 0 t72 0 t72 0 t72 0 t72 0 t72 0 t72 0 t72 0" stroke-width="5" opacity=".4"/>
+  </g>
+  <g fill="#ffffff">
+    <ellipse cx="300" cy="588" rx="150" ry="26" opacity=".55"/>
+    <ellipse cx="190" cy="580" rx="46" ry="12" opacity=".6"/>
+    <ellipse cx="420" cy="600" rx="54" ry="13" opacity=".55"/>
+    <ellipse cx="96" cy="660" rx="60" ry="10" opacity=".35"/>
+    <ellipse cx="520" cy="690" rx="70" ry="12" opacity=".35"/>
+  </g>
+
+  <!-- raft with six paddlers -->
+  <g transform="rotate(-7 300 548)">
+    <rect x="186" y="526" width="228" height="56" rx="28" fill="url(#raft)"/>
+    <rect x="186" y="526" width="228" height="56" rx="28" fill="none" stroke="#c2410c" stroke-width="3"/>
+    <rect x="210" y="540" width="180" height="22" rx="11" fill="#9a3412" opacity=".55"/>
+    <g stroke="#f8fafc" stroke-width="3" stroke-linecap="round">
+      <path d="M226 528 L200 596"/><path d="M276 526 L252 600"/><path d="M326 524 L304 598"/><path d="M376 522 L356 594"/>
+    </g>
+    <g fill="#f8fafc">
+      <rect x="194" y="590" width="10" height="16" rx="3" transform="rotate(20 199 598)"/>
+      <rect x="246" y="594" width="10" height="16" rx="3" transform="rotate(18 251 602)"/>
+      <rect x="298" y="592" width="10" height="16" rx="3" transform="rotate(18 303 600)"/>
+      <rect x="350" y="588" width="10" height="16" rx="3" transform="rotate(16 355 596)"/>
+    </g>
+    <g>
+      <rect x="214" y="504" width="22" height="30" rx="8" fill="#1d4ed8"/><circle cx="225" cy="496" r="10" fill="#ef4444"/>
+      <rect x="248" y="500" width="22" height="30" rx="8" fill="#1e40af"/><circle cx="259" cy="492" r="10" fill="#facc15"/>
+      <rect x="282" y="498" width="22" height="30" rx="8" fill="#1d4ed8"/><circle cx="293" cy="490" r="10" fill="#38bdf8"/>
+      <rect x="316" y="496" width="22" height="30" rx="8" fill="#1e40af"/><circle cx="327" cy="488" r="10" fill="#ef4444"/>
+      <rect x="350" y="494" width="22" height="30" rx="8" fill="#1d4ed8"/><circle cx="361" cy="486" r="10" fill="#facc15"/>
+      <rect x="384" y="496" width="20" height="28" rx="8" fill="#0f766e"/><circle cx="394" cy="488" r="9.5" fill="#f8fafc"/>
+      <g fill="#f97316" opacity=".95">
+        <rect x="216" y="508" width="18" height="12" rx="4"/><rect x="250" y="504" width="18" height="12" rx="4"/>
+        <rect x="284" y="502" width="18" height="12" rx="4"/><rect x="318" y="500" width="18" height="12" rx="4"/>
+        <rect x="352" y="498" width="18" height="12" rx="4"/>
+      </g>
+    </g>
+  </g>
+  <path d="M178 566 q24 -16 48 -2 q30 18 60 4 q30 -14 60 2 q30 16 70 -4" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity=".75"/>
+
+  <!-- foreground rocks -->
+  <path d="M0 610 C40 600 80 618 104 650 C120 690 110 760 80 820 C60 860 30 890 0 900 Z" fill="#183c33"/>
+  <path d="M600 600 C560 596 528 612 512 640 C496 676 508 740 536 800 C556 846 580 880 600 900 Z" fill="#163830"/>
+</svg>
