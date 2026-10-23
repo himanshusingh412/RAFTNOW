@@ -3,7 +3,7 @@ import type { ConfirmationResult } from 'firebase/auth';
 import { Smartphone, Wrench } from 'lucide-react';
 import { publicApi } from '../lib/api';
 import { Audience, firebaseConfigured, sendOtp, setDevToken } from '../lib/phone-auth';
-import { Button, ErrorBanner, Field, Notice, Panel, inputCls } from './ui';
+import { Button, ErrorBanner, Field, Notice, Panel, useInputCls, useTheme } from './ui';
 
 /**
  * Real phone OTP (Firebase) when configured. Developer sign-in is offered only
@@ -29,11 +29,13 @@ export const PhoneSignIn: React.FC<{ audience: Audience; title: string; onSigned
   }, []);
 
   const validPhone = /^\+[1-9]\d{7,14}$/.test(phone);
+  const inputCls = useInputCls();
+  const light = useTheme() === 'light';
 
   return (
-    <Panel title={<><Smartphone className="w-4 h-4 text-teal-400" /> {title}</>} className="max-w-md mx-auto">
+    <Panel title={<><Smartphone className={`w-4 h-4 ${light ? 'text-[#008cff]' : 'text-teal-400'}`} /> {title}</>} className="max-w-md mx-auto">
       <ErrorBanner error={err} onClose={() => setErr(null)} />
-      {mode === 'loading' && <p className="text-xs text-slate-400">Checking sign-in options…</p>}
+      {mode === 'loading' && <p className={light ? 'text-sm text-neutral-500' : 'text-xs text-slate-400'}>Checking sign-in options…</p>}
       {mode === 'none' && (
         <Notice tone="warn">
           Phone sign-in is not available: Firebase is not configured on this deployment (server FIREBASE_* and web VITE_FIREBASE_* settings).

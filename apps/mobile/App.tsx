@@ -6,7 +6,6 @@ import { useFonts } from 'expo-font';
 import { configureAuth, SlotView, Ticket, TripDetail } from './src/api';
 import { endSession, restoreSession, StoredSession, tokenProviderFor } from './src/session';
 import { LoginScreen } from './src/LoginScreen';
-import { MistBackground, RaftNowMark } from './src/brand';
 import { ExploreScreen } from './src/ExploreScreen';
 import { Mode, TripScreen } from './src/TripScreen';
 import { CheckoutScreen } from './src/CheckoutScreen';
@@ -15,7 +14,7 @@ import { TicketView } from './src/TicketView';
 import { AccountScreen } from './src/AccountScreen';
 import { OperatorScreen } from './src/OperatorScreen';
 import { clearOffline } from './src/offline';
-import { Button, HeroHeader, Icon, IconName, c, ui } from './src/ui';
+import { Button, GradientFill, HeroHeader, Icon, IconName, c, ui } from './src/ui';
 
 type Tab = 'explore' | 'trips' | 'scan' | 'account';
 type AuthState = { status: 'restoring' } | { status: 'ready'; session: StoredSession | null };
@@ -85,10 +84,13 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }} accessibilityLabel="Loading RaftNow">
-          <StatusBar style="dark" />
-          <MistBackground />
-          <RaftNowMark size={64} />
-          <ActivityIndicator color="#0891b2" style={{ marginTop: 24 }} />
+          <StatusBar style="light" />
+          <GradientFill from={c.heroFrom} to={c.heroTo} vertical />
+          <Icon name="waves" size={56} color="#ffffff" strokeWidth={2.2} />
+          <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '900', marginTop: 12, letterSpacing: -0.5 }}>
+            Raft<Text style={{ color: c.primaryLight }}>Now</Text>
+          </Text>
+          <ActivityIndicator color="#ffffff" style={{ marginTop: 24 }} />
         </View>
       </SafeAreaProvider>
     );
@@ -216,7 +218,7 @@ export default function App() {
             onPress={() => setLogin(null)}
             style={{ position: 'absolute', top: 16, right: 16, minHeight: 44, minWidth: 44, alignItems: 'center', justifyContent: 'center' }}
           >
-            <Text style={{ color: '#0891b2', fontSize: 16, fontWeight: '700' }}>Close</Text>
+            <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Close</Text>
           </Pressable>
         </SafeAreaProvider>
       </Modal>

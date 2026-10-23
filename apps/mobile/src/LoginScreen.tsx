@@ -18,15 +18,16 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { API_URL, api, ApiError, Health } from './api';
-import { GlossyButton, MistBackground, RaftNowMark, RaftNowWordmark } from './brand';
+import { Button, GradientFill, Icon, c } from './ui';
 import { firebaseAuth, firebaseSignOut, idToken, onFirebaseUser, phoneAuthErrorMessage, sendSmsCode } from './phone-auth';
 import type { ConfirmationResult, FirebaseUser } from './phone-auth';
 import { resolveRole, Role, saveSession, StoredSession } from './session';
-import { font, mist, radius } from './theme';
+import { font } from './theme';
 
 /**
- * Native sign-in screen (customers and operator staff), modelled on the
- * reference login: logo, "Welcome back", phone number, glossy "Send code".
+ * Native sign-in screen (customers and operator staff), in the app's
+ * travel-booking style: blue gradient hero with the heading, form in a white
+ * card overlapping it, gradient pill button.
  *
  * Authentication is RaftNow's real one: phone number → one-time SMS code
  * (Firebase, native SDK) → the API decides the account type (GET /vendor/me).
@@ -92,7 +93,7 @@ function Notice({ tone, children, action }: { tone: 'error' | 'info' | 'warn'; c
   );
 }
 
-/** Labelled input with the reference's 2px aqua focus ring (drawn outside the box, so nothing shifts). */
+/** Labelled input with a 2px blue focus ring (drawn outside the box, so nothing shifts). */
 function Field({
   id,
   label,
@@ -113,10 +114,10 @@ function Field({
           accessibilityLabel={label}
           accessibilityLabelledBy={`${id}-label`}
           accessibilityHint={error ?? undefined}
-          placeholderTextColor={mist.placeholder}
+          placeholderTextColor="#a3a3a3"
           keyboardAppearance="light"
-          selectionColor={mist.aquaDark}
-          cursorColor={mist.aquaDark}
+          selectionColor={c.primary}
+          cursorColor={c.primary}
           underlineColorAndroid="transparent"
           onFocus={(e) => {
             setFocused(true);
@@ -128,7 +129,7 @@ function Field({
           }}
           style={[
             styles.input,
-            { borderColor: focused ? 'transparent' : error ? mist.errorLine : mist.line },
+            { borderColor: focused ? 'transparent' : error ? c.error : '#d9d9d9' },
             style,
           ]}
         />
@@ -154,7 +155,7 @@ function LinkButton({ label, onPress, disabled }: { label: string; onPress: () =
       hitSlop={12}
       style={({ pressed }) => ({ paddingVertical: 2, opacity: pressed ? 0.6 : 1 })}
     >
-      <Text style={[styles.link, disabled && { color: mist.inkMuted }]}>{label}</Text>
+      <Text style={[styles.link, disabled && { color: c.muted }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -341,42 +342,47 @@ export function LoginScreen({ notice: initialNotice, onSignedIn }: { notice: str
     });
   };
 
-  const heading = view === 'code' ? 'Enter your code' : view === 'dev' ? 'Developer sign-in' : 'Welcome back';
+  const heading = view === 'code' ? 'Enter verification code' : view === 'dev' ? 'Developer sign-in' : 'Welcome to RaftNow';
   const phoneUnavailable = mode === 'server-off' || mode === 'app-off';
 
+  const subtitle =
+    view === 'code' ? null : view === 'dev' ? 'Local development sign-in' : 'Log in or create an account with your mobile number';
+
   return (
-    <View style={{ flex: 1 }}>
-      <StatusBar style="dark" />
-      <MistBackground />
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <StatusBar style="light" />
       {/* Android apps are edge-to-edge on SDK 54+, so the window no longer resizes for the keyboard: pad on both platforms. */}
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
         <ScrollView
           ref={scrollRef}
-          contentContainerStyle={[
-            styles.scroll,
-            { paddingTop: insets.top + (wide ? 40 : 24), paddingBottom: insets.bottom + (wide ? 40 : 24), paddingHorizontal: wide ? 40 : 24 },
-          ]}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 24 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.column}>
-            <View style={styles.logoBlock}>
-              <RaftNowMark size={64} />
-              <RaftNowWordmark size={32} />
-            </View>
-
-            <View style={{ marginBottom: 24 }}>
+          <View style={[styles.hero, { paddingTop: insets.top + (wide ? 48 : 32), paddingHorizontal: wide ? 40 : 24 }]}>
+            <GradientFill from={c.heroFrom} to={c.heroTo} />
+            <View style={[styles.column, { alignItems: 'flex-start' }]}>
+              <View style={styles.brandRow} accessible accessibilityRole="image" accessibilityLabel="RaftNow">
+                <Icon name="waves" size={28} color="#ffffff" strokeWidth={2.4} />
+                <Text style={styles.brand}>
+                  Raft<Text style={{ color: c.primaryLight }}>Now</Text>
+                </Text>
+              </View>
               <Text accessibilityRole="header" style={[styles.h1, wide && { fontSize: 30, lineHeight: 36 }]}>
                 {heading}
               </Text>
+              {subtitle && <Text style={styles.sub}>{subtitle}</Text>}
               {view === 'code' && (
                 <Text style={styles.sub}>
-                  We sent a 6-digit code to <Text style={{ color: mist.ink, fontFamily: font.body500 }}>{displayPhone(sentTo)}</Text>.
+                  We sent a 6-digit code to <Text style={{ color: '#ffffff', fontFamily: font.body600 }}>{displayPhone(sentTo)}</Text>.
                 </Text>
               )}
             </View>
+          </View>
 
+          <View style={{ paddingHorizontal: wide ? 40 : 16 }}>
+          <View style={[styles.column, styles.card]}>
             {notice && <Notice tone="info">{notice}</Notice>}
             {error && <Notice tone="error">{error}</Notice>}
             {view === 'phone' && healthFailed && !error && (
@@ -409,8 +415,8 @@ export function LoginScreen({ notice: initialNotice, onSignedIn }: { notice: str
                   editable={!busy}
                 />
                 {/* marginBottom keeps the reference's vertical balance (its secondary link row sits here). */}
-                <View style={{ marginTop: phoneError ? 16 : 0, marginBottom: 40 }}>
-                  <GlossyButton label="Send code" busyLabel="Sending code…" busy={busy} disabled={!e164 || phoneUnavailable} onPress={onSendCode} />
+                <View style={{ marginTop: phoneError ? 8 : -12 }}>
+                  <Button label={busy ? 'Sending code…' : 'Continue'} busy={busy} disabled={!e164 || phoneUnavailable} onPress={onSendCode} />
                 </View>
               </>
             )}
@@ -433,7 +439,7 @@ export function LoginScreen({ notice: initialNotice, onSignedIn }: { notice: str
                   editable={!busy}
                   style={{ letterSpacing: 4 }}
                 />
-                <GlossyButton label="Verify" busyLabel="Verifying…" busy={busy} disabled={code.length !== 6} onPress={onVerify} />
+                <Button label={busy ? 'Verifying…' : 'Verify & continue'} busy={busy} disabled={code.length !== 6} onPress={onVerify} style={{ marginTop: -12 }} />
                 <View style={styles.linkRow}>
                   <LinkButton label="Use a different number" disabled={busy} onPress={() => switchTo('phone')} />
                   <LinkButton label={resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'} disabled={busy || resendIn > 0} onPress={onResend} />
@@ -459,15 +465,15 @@ export function LoginScreen({ notice: initialNotice, onSignedIn }: { notice: str
                   editable={!busy}
                   hint="Seeded operator owner: vendor-owner with 9876543210."
                 />
-                <View style={{ marginTop: 16 }}>
-                  <GlossyButton label="Continue" busyLabel="Signing in…" busy={busy} disabled={devUid.length < 3} onPress={onDevContinue} />
-                </View>
+                <Button label={busy ? 'Signing in…' : 'Continue'} busy={busy} disabled={devUid.length < 3} onPress={onDevContinue} />
                 <View style={[styles.linkRow, { justifyContent: 'center' }]}>
                   <LinkButton label="Use a different number" disabled={busy} onPress={() => switchTo('phone')} />
                 </View>
               </>
             )}
           </View>
+          </View>
+          <Text style={styles.terms}>By continuing you agree to RaftNow’s Terms of Service and Privacy Policy.</Text>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -475,28 +481,40 @@ export function LoginScreen({ notice: initialNotice, onSignedIn }: { notice: str
 }
 
 const styles = StyleSheet.create({
-  scroll: { flexGrow: 1, justifyContent: 'center' },
   column: { width: '100%', maxWidth: 448, alignSelf: 'center' },
-  logoBlock: { alignItems: 'center', gap: 20, marginBottom: 32 },
-  h1: { fontFamily: font.display800, fontSize: 24, lineHeight: 32, color: mist.inkStrong, letterSpacing: -0.3 },
-  sub: { fontFamily: font.body400, fontSize: 14, lineHeight: 20, color: mist.inkMuted, marginTop: 8 },
-  label: { fontFamily: font.body500, fontSize: 14, lineHeight: 20, color: mist.ink, marginBottom: 8 },
+  hero: { paddingBottom: 72, overflow: 'hidden' },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 28 },
+  brand: { fontFamily: font.display800, fontSize: 26, color: '#ffffff', letterSpacing: -0.4 },
+  h1: { fontFamily: font.display800, fontSize: 26, lineHeight: 32, color: '#ffffff', letterSpacing: -0.3 },
+  sub: { fontFamily: font.body400, fontSize: 15, lineHeight: 21, color: c.onHeroMuted, marginTop: 6 },
+  card: {
+    backgroundColor: c.card,
+    borderRadius: 14,
+    padding: 20,
+    marginTop: -48,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 14, shadowOffset: { width: 0, height: 4 } },
+      android: { elevation: 4 },
+    }),
+  },
+  terms: { fontFamily: font.body400, fontSize: 12, lineHeight: 18, color: c.muted, textAlign: 'center', marginTop: 20, paddingHorizontal: 32 },
+  label: { fontFamily: font.body600, fontSize: 13, lineHeight: 18, color: c.muted, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: {
     height: 50,
     paddingHorizontal: 16,
     paddingVertical: 0,
     borderWidth: 1,
-    borderRadius: radius.field,
-    backgroundColor: mist.white,
-    color: mist.ink,
-    fontFamily: font.body400,
-    fontSize: 16,
+    borderRadius: 10,
+    backgroundColor: '#ffffff',
+    color: c.text,
+    fontFamily: font.body500,
+    fontSize: 17,
   },
-  focusRing: { position: 'absolute', top: -2, left: -2, right: -2, bottom: -2, borderRadius: radius.field + 2, borderWidth: 2, borderColor: mist.aqua },
-  fieldError: { fontFamily: font.body400, fontSize: 14, lineHeight: 20, color: mist.error, marginTop: 8 },
-  hint: { fontFamily: font.body400, fontSize: 14, lineHeight: 20, color: mist.inkMuted, marginTop: 8 },
-  link: { fontFamily: font.body400, fontSize: 14, lineHeight: 20, color: mist.aquaDark },
+  focusRing: { position: 'absolute', top: -2, left: -2, right: -2, bottom: -2, borderRadius: 12, borderWidth: 2, borderColor: c.primary },
+  fieldError: { fontFamily: font.body400, fontSize: 14, lineHeight: 20, color: c.error, marginTop: 8 },
+  hint: { fontFamily: font.body400, fontSize: 14, lineHeight: 20, color: c.muted, marginTop: 8 },
+  link: { fontFamily: font.body600, fontSize: 14, lineHeight: 20, color: c.primary },
   linkRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, gap: 12, flexWrap: 'wrap' },
-  notice: { flexDirection: 'row', gap: 10, borderWidth: 1, borderRadius: radius.field, paddingHorizontal: 16, paddingVertical: 12, marginBottom: 24 },
+  notice: { flexDirection: 'row', gap: 10, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 20 },
   noticeText: { fontFamily: font.body400, fontSize: 14, lineHeight: 20 },
 });
