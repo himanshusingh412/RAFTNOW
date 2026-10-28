@@ -28,6 +28,7 @@ const DB_ERRORS: Record<string, [number, string]> = {
   booking_not_reschedulable: [409, "This booking can't be rescheduled."],
   booking_not_active: [409, "This trip isn't active."],
   no_open_offer: [409, "There is no open offer for this trip."],
+  no_verified_operators: [409, "No verified operator runs this route yet. Verify one first, or give a capacity."],
   has_upcoming_bookings: [409, "Cancel your upcoming trips before deleting your account."],
   outside_trip_window: [409, "Scans only work on the day of the trip."],
   checkpoint_out_of_order: [409, "Scan the checkpoints in order."],

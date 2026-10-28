@@ -72,6 +72,9 @@ select test.login(:'opsa');
 select test.ok((select count(*) from public.bookings) = 1, 'assigned operator sees the booking');
 select test.ok((select count(*) from public.participants) = 0, 'assigned operator sees no names before accepting');
 select test.ok((select count(*) from public.payments) = 0, 'operator sees no payment details');
+select test.fails($$select contact_email, contact_phone from public.bookings$$, 'permission denied', 'operator cannot read the booker''s contact details');
+select test.ok((select count(*) from (select id, reference, status, group_size, assignment_status, addons from public.bookings) t) = 1,
+  'operator still reads the trip itself');
 select public.operator_respond((select id from b1), false);
 select test.ok((select count(*) from public.bookings) = 0, 'after declining, operator A no longer sees it');
 select test.logout();
@@ -132,3 +135,17 @@ select public.expire_holds();
 update public.slots set capacity = seats_booked + seats_held where id = (select slot_id from b5);
 select test.ok(public.confirm_payment('order_gone', 'pay_gone', (select total_paise from b5)) = 'refund_queued', 'seats gone: refund queued');
 select test.ok((select status || '/' || cancel_reason from public.bookings where id = (select id from b5)) = 'cancelled/payment_late', 'booking cancelled as payment_late');
+-- the browser's verify call can arrive after the webhook: it must still hear "refund", not "confirmed"
+select test.ok(public.confirm_payment('order_gone', 'pay_gone', (select total_paise from b5)) = 'refund_queued', 'repeat confirm still reports the refund');
+
+-- settings: a missing or empty one stops the action instead of silently switching its rule off
+create temp table saved_setting as select * from public.settings where key = 'refund_full_hours';
+update public.settings set value = 'null' where key = 'hold_minutes';
+delete from public.settings where key = 'refund_full_hours';
+select test.login(:'rafter');
+select test.fails($$select public.create_booking(test.slot('shivpuri', 11, 8), test.people(array[30]))$$,
+  'missing_setting', 'empty hold_minutes refuses the booking');
+select test.fails($$select * from public.refund_quote((select id from b1))$$, 'missing_setting', 'missing refund_full_hours refuses the quote');
+select test.logout();
+update public.settings set value = '15' where key = 'hold_minutes';
+insert into public.settings select * from saved_setting;

@@ -11,11 +11,11 @@ PORT="${PGPORT_TEST:-54329}"
 RUN_AS=()
 if [ "$(id -u)" = "0" ]; then RUN_AS=(runuser -u postgres --); chown postgres "$DIR"; fi
 
-cleanup() { "${RUN_AS[@]}" "$PGBIN/pg_ctl" -D "$DIR/data" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$DIR"; }
+cleanup() { ${RUN_AS[@]+"${RUN_AS[@]}"} "$PGBIN/pg_ctl" -D "$DIR/data" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$DIR"; }
 trap cleanup EXIT
 
-"${RUN_AS[@]}" "$PGBIN/initdb" -D "$DIR/data" -U postgres --auth=trust >/dev/null
-"${RUN_AS[@]}" "$PGBIN/pg_ctl" -D "$DIR/data" -o "-p $PORT -k $DIR -c listen_addresses=''" -l "$DIR/log" start >/dev/null
+${RUN_AS[@]+"${RUN_AS[@]}"} "$PGBIN/initdb" -D "$DIR/data" -U postgres --auth=trust >/dev/null
+${RUN_AS[@]+"${RUN_AS[@]}"} "$PGBIN/pg_ctl" -D "$DIR/data" -o "-p $PORT -k $DIR -c listen_addresses=''" -l "$DIR/log" start >/dev/null
 
 PSQL=(psql -X -q -v ON_ERROR_STOP=1 -h "$DIR" -p "$PORT" -U postgres -d postgres)
 "${PSQL[@]}" -f supabase/tests/bootstrap.sql

@@ -6,15 +6,24 @@
 -- ---------------------------------------------------------------------------
 -- small helpers
 -- ---------------------------------------------------------------------------
+-- a missing or null setting raises, so no rule is ever silently switched off
 create or replace function public.setting_int(p_key text) returns int
-language sql stable security definer set search_path = '' as $$
-  select (value #>> '{}')::int from public.settings where key = p_key
-$$;
+language plpgsql stable security definer set search_path = '' as $$
+declare v int;
+begin
+  select (value #>> '{}')::int into v from public.settings where key = p_key;
+  if v is null then raise exception 'missing_setting' using hint = p_key; end if;
+  return v;
+end $$;
 
 create or replace function public.setting_text(p_key text) returns text
-language sql stable security definer set search_path = '' as $$
-  select value #>> '{}' from public.settings where key = p_key
-$$;
+language plpgsql stable security definer set search_path = '' as $$
+declare v text;
+begin
+  select value #>> '{}' into v from public.settings where key = p_key;
+  if v is null then raise exception 'missing_setting' using hint = p_key; end if;
+  return v;
+end $$;
 
 create or replace function public.is_admin() returns boolean
 language sql stable security definer set search_path = '' as $$
@@ -252,7 +261,7 @@ begin
         >= v_b.group_size
   order by o.rotation_last_assigned_at asc nulls first, o.id
   limit 1
-  for update of o skip locked;
+  for update of o; -- wait for a parallel assignment; skipping would leave this booking without an operator
 
   if v_op is null then
     update public.bookings set operator_id = null, assignment_status = 'no_operator' where id = v_b.id;
@@ -281,7 +290,11 @@ declare v_pay public.payments; v_b public.bookings; v_ok boolean := false;
 begin
   select * into v_pay from public.payments where provider_order_id = p_order_id for update;
   if not found then raise exception 'unknown_order'; end if;
-  if v_pay.status in ('captured', 'refunded', 'partially_refunded') then return 'already_confirmed'; end if;
+  if v_pay.status in ('captured', 'refunded', 'partially_refunded') then
+    -- seen before: report what happened then (a booking that couldn't stand was refunded)
+    return case when (select status from public.bookings where id = v_pay.booking_id) in ('confirmed', 'completed')
+                then 'already_confirmed' else 'refund_queued' end;
+  end if;
   if p_amount_paise <> v_pay.amount_paise then raise exception 'amount_mismatch'; end if;
 
   update public.payments set status = 'captured', provider_payment_id = p_payment_id,
@@ -498,6 +511,7 @@ begin
   v_cap := coalesce(p_capacity, (select coalesce(sum(r.seats_per_slot), 0) from public.operator_routes r
                     join public.operators o on o.id = r.operator_id
                     where r.route_id = p_route and o.status = 'verified'));
+  if v_cap = 0 and p_capacity is null then raise exception 'no_verified_operators'; end if;
   insert into public.slots (route_id, starts_at, capacity)
   select p_route, (d::date + t) at time zone 'Asia/Kolkata', v_cap
   from generate_series(p_from, p_to, interval '1 day') d, unnest(p_times) t

@@ -7,6 +7,8 @@ vi.mock("@/lib/env", () => ({ env: () => ({ RAZORPAY_WEBHOOK_SECRET: SECRET }) }
 // A tiny fake of the service-role Supabase client: records RPC calls and stores webhook_events rows.
 const calls: { fn: string; args: unknown }[] = [];
 const events = new Map<string, { processed_at: string | null; error?: string | null }>();
+const stored: object[] = [];
+const refundRows = new Map<string, { id: string }>(); // refunds rows, found by the value the route filters on
 let rpcError: string | null = null;
 
 vi.mock("@/lib/supabase/admin", () => ({
@@ -19,6 +21,7 @@ vi.mock("@/lib/supabase/admin", () => ({
       let id = "";
       const api = {
         upsert: async (row: { id: string }) => {
+          stored.push(row);
           if (!events.has(row.id)) events.set(row.id, { processed_at: null });
           return { error: null };
         },
@@ -31,7 +34,7 @@ vi.mock("@/lib/supabase/admin", () => ({
         }),
         eq: (_c: string, v: string) => ((id = v), api),
         single: async () => ({ data: events.get(id) ?? null, error: null }),
-        maybeSingle: async () => ({ data: null, error: null }),
+        maybeSingle: async () => ({ data: refundRows.get(id) ?? null, error: null }),
       };
       return api;
     },
@@ -58,6 +61,8 @@ const captured = {
 beforeEach(() => {
   calls.length = 0;
   events.clear();
+  stored.length = 0;
+  refundRows.clear();
   rpcError = null;
 });
 
@@ -100,5 +105,19 @@ describe("razorpay webhook", () => {
   it("records processed refunds by Razorpay id and our receipt", async () => {
     await POST(request({ event: "refund.processed", payload: { refund: { entity: { id: "rfnd_1", payment_id: "pay_1", receipt: "cancel:abc" } } } }, { id: "evt_5" }));
     expect(calls).toEqual([{ fn: "refund_processed", args: { p_provider_refund_id: "rfnd_1", p_receipt: "cancel:abc" } }]);
+  });
+
+  it("stores no personal data from the event (account deletion never reaches webhook_events)", async () => {
+    const entity = { ...captured.payload.payment.entity, email: "ravi@example.com", contact: "+919876543210" };
+    await POST(request({ ...captured, payload: { payment: { entity } } }, { id: "evt_6" }));
+    expect(JSON.stringify(stored)).not.toMatch(/ravi@example\.com|9876543210/);
+    expect(JSON.stringify(stored)).toContain("pay_1");
+  });
+
+  it("puts a refund Razorpay reports failed back in the retry queue, found by our receipt", async () => {
+    refundRows.set("cancel:abc", { id: "refund_row_1" });
+    const failed = { event: "refund.failed", payload: { refund: { entity: { id: "rfnd_9", payment_id: "pay_1", receipt: "cancel:abc" } } } };
+    expect((await POST(request(failed, { id: "evt_7" }))).status).toBe(200);
+    expect(calls).toEqual([{ fn: "refund_error", args: { p_refund: "refund_row_1", p_error: "razorpay reported refund.failed" } }]);
   });
 });

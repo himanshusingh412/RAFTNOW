@@ -34,7 +34,9 @@ export async function POST(req: Request) {
   const db = adminClient();
   const eventId = req.headers.get("x-razorpay-event-id") ?? `sha256:${createHash("sha256").update(raw).digest("hex")}`;
   await db.from("webhook_events").upsert(
-    { id: eventId, provider: "razorpay", event_type: evt.event, payload: evt },
+    // ids only: Razorpay's entities carry the customer's email and phone, which must not outlive the account
+    { id: eventId, provider: "razorpay", event_type: evt.event,
+      payload: { payment_id: evt.payload.payment?.entity.id ?? null, refund_id: evt.payload.refund?.entity.id ?? null } },
     { onConflict: "id", ignoreDuplicates: true },
   );
   const { data: seen } = await db.from("webhook_events").select("processed_at").eq("id", eventId).single();

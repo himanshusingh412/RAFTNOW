@@ -86,7 +86,7 @@ Jobs (all run on each `/api/cron/tick`):
 
 - **Time zones:** slots are stored in UTC and "a day" means IST. The cut-off rules are hour-based (24 h reschedule, 48 h refund) and computed in SQL with `now()`, never on the client.
 - **Idempotency:** Razorpay retries webhooks, and the browser and the webhook both report the same payment. `confirm_payment` is keyed on the Razorpay order id and safe to run twice. Refunds carry a unique idempotency key.
-- **Races:** two rafters taking the last seats at once. `hold_seats` does a single conditional `UPDATE … WHERE capacity - held - booked >= n`. Fair rotation locks operator rows with `FOR UPDATE SKIP LOCKED`.
+- **Races:** two rafters taking the last seats at once. `hold_seats` does a single conditional `UPDATE … WHERE capacity - held - booked >= n`. Fair rotation locks operator rows with `FOR UPDATE`, so a parallel confirmation waits instead of skipping the operator.
 - **Payment after the hold expired:** the seats are re-taken if still free. Otherwise the booking is marked for a full automatic refund and the rafter is emailed.
 - **Closures:** closing the river cancels every confirmed booking in the range with a full refund in one transaction, then emails offering a reschedule.
 - **Rate limits:** OTP, booking creation and cancellation are limited per user and IP. Supabase Auth adds its own OTP limits.

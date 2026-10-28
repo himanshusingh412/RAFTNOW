@@ -17,6 +17,14 @@ end $$;
 -- profile owners may edit their name and phone, nothing else (not role)
 grant update (full_name, phone) on public.profiles to authenticated;
 
+-- operators read the bookings offered to them; the booker's contact details stay out of the API
+-- (emails read them inside functions). A new bookings column must be added here to be readable.
+revoke select on public.bookings from authenticated;
+grant select (id, reference, user_id, route_id, slot_id, group_size, status, hold_expires_at, seats_state, addons,
+  subtotal_paise, addons_paise, platform_fee_paise, gst_paise, total_paise, currency, channel, operator_id,
+  assignment_status, cancelled_at, cancel_reason, rescheduled_from_slot_id, reminder_sent_at, created_at, updated_at)
+  on public.bookings to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- public catalogue
 -- ---------------------------------------------------------------------------
