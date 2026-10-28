@@ -1,0 +1,53 @@
+feature,area,priority,original,clone,notes
+Home page with route cards (distance time rapids age price),discovery,must,yes,no,S01
+Filter routes by category (family moderate expert),discovery,must,yes,no,S01 tabs; Expert currently empty on original
+Route detail page with facts block,discovery,must,yes,no,S02
+Rapids table per route (name grade description),discovery,must,yes,no,S02
+Included / bring / extra lists per route,discovery,must,yes,no,S02
+Single source of truth for route facts and prices,discovery,must,partial,partial,routes table + settings hold every fact; pages must read from them
+Season window and closed dates (monsoon 1 Jul - 15 Sep),availability,must,yes,partial,"closures table, generate_slots skips closed days; backend done (API + DB, tested); screen in replica-build"
+Sign in with phone OTP,accounts,must,partial,partial,email 6-digit code + Google built; phone SMS waits on DLT registration
+Pick route date slot and group size,booking,must,partial,partial,"backend done (API + DB, tested); screen in replica-build"
+Enforce route minimum age per participant,booking,must,yes,yes,enforced in create_booking from the route row
+Participant details health declaration and consent,booking,must,partial,partial,"backend done (API + DB, tested); screen in replica-build"
+Price summary incl GST and platform fee,booking,must,yes,partial,"computed server-side in create_booking; backend done (API + DB, tested); screen in replica-build"
+Online payment via Razorpay (UPI card netbanking),payments,must,yes,partial,"orders, signature check, webhooks; Checkout UI in replica-build"
+Instant booking confirmation with reporting point and on-call number,booking,must,yes,partial,confirm_payment + email; confirmation screen pending
+Confirmation by WhatsApp/SMS and email,notifications,must,partial,partial,email done; WhatsApp needs Meta Cloud API templates
+My bookings list and detail,accounts,must,partial,partial,"backend done (API + DB, tested); screen in replica-build"
+Reschedule free up to 24h before,booking,must,yes,partial,"backend done (API + DB, tested); screen in replica-build"
+Cancel with tiered refund (48h+ full / <48h 50% / no-show 0),payments,must,yes,partial,"refund_quote + cancel_booking + Razorpay refunds job; backend done (API + DB, tested); screen in replica-build"
+Platform closure cancels with full refund or reschedule,payments,must,yes,partial,close_river; reschedule offered by email; admin screen pending
+Operator records with permit number and expiry,operators,must,yes,partial,"backend done (API + DB, tested); screen in replica-build"
+Seasonal operator verification checklist (8 points),operators,must,yes,partial,"backend done (API + DB, tested); screen in replica-build"
+Assign bookings to verified operators by fair rotation,operators,must,yes,yes,"assign_operator: least recently assigned first, capacity and permit aware"
+Operator view of assigned trips with accept/decline,operators,must,partial,partial,"backend done (API + DB, tested); screen in replica-build"
+Admin: manage routes rapids prices and closures,admin,must,partial,partial,slots + closures via API; routes/prices via SQL until an admin screen
+Book via WhatsApp with prefilled route date group size,booking,should,yes,no,S17 today's main channel
+Planning guide page (season travel wear age budget),content,should,yes,no,S03
+Safety standards page,content,should,yes,no,S04
+FAQ accordions on home route and plan pages,content,should,yes,no,S01 S02 S03
+Add-ons (photographer cliff jump camping hotel pickup),booking,should,yes,partial,"addons table priced per person or booking; backend done (API + DB, tested); screen in replica-build"
+Group rate for 8+,booking,should,yes,no,S02
+QR checkpoint scans x3 per trip with GPS validation,trip day,should,yes,partial,record_checkpoint with geofence; QR codes + scanner UI pending
+Live GPS trip tracking,trip day,should,yes,partial,gps_pings API; guide phone app pending
+Shareable family tracking link,trip day,should,yes,partial,"tokenised link, no personal data; tracking page pending"
+Incident log and follow-up,operators,should,yes,partial,report_incident + ops email; follow-up screen pending
+Guide records with swift-water rescue certification,operators,should,yes,partial,guides table; no API/screen yet
+Remove failed operators from rotation,operators,should,yes,yes,failed verification suspends; suspended operators get no trips
+Corporate / large group enquiry,booking,should,yes,no,S07 linked not read
+Legal pages (privacy terms refunds),content,should,yes,no,S08
+Route ratings,social proof,could,yes,no,S01 stars; source of ratings unclear
+Rafter video reels gallery,social proof,could,yes,no,S01 S22
+Blog with booking CTAs,content,could,yes,no,S05 S06
+Light/dark theme toggle,ui,could,yes,no,S01
+Multi-day / camping combos,booking,could,yes,no,S02 extras; S03 combos
+Airport or station pickup add-on,booking,could,yes,no,S03 'some operators'
+Walk-in / cash booking recorded by operator,payments,could,yes,no,terms mention walk-in cash
+Marketplace stats band (rafts operators daily adventurers),social proof,could,yes,no,needs your own real numbers; never copy theirs
+Their 300+ operator network,operators,could,yes,skip,their network; recruit your own
+Uttarakhand Tourism rafting permits,operators,must,yes,skip,regulated licence held by operators
+GPS hardware on rafts,trip day,should,yes,skip,hardware; clone the software only
+Their reels photos route copy and blog,content,could,yes,skip,their content; write and shoot your own
+Bundled adventure insurance,payments,could,no,skip,partner deal; original still evaluating it
+RaftingX brand and stats,brand,must,yes,skip,their identity; replica-brand replaces it
