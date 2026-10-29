@@ -4,8 +4,10 @@
  * Base URL: EXPO_PUBLIC_API_URL (inlined by Expo at build time), e.g.
  *   EXPO_PUBLIC_API_URL=http://192.168.1.20:4000/api/v1 npx expo start
  * A phone cannot reach "localhost" on your computer — use the LAN IP.
+ * Only development builds default to localhost; a release build without it
+ * fails every call with API_NOT_CONFIGURED instead of silently using localhost.
  */
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1').replace(/\/$/, '');
+export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? (__DEV__ ? 'http://localhost:4000/api/v1' : '')).replace(/\/$/, '');
 
 export class ApiError extends Error {
   constructor(readonly status: number, readonly code: string, message: string, readonly details?: Record<string, unknown>) {
@@ -30,6 +32,7 @@ export function configureAuth(provider: TokenProvider | null, onRejected: (() =>
 export const REJECTED_TOKEN_CODES = ['INVALID_FIREBASE_TOKEN', 'INVALID_DEV_TOKEN'];
 
 export async function api<T>(path: string, init: { method?: string; body?: unknown; token?: string } = {}): Promise<T> {
+  if (!API_URL) throw new ApiError(0, 'API_NOT_CONFIGURED', 'This build has no API address: EXPO_PUBLIC_API_URL was not set when it was built.');
   const headers: Record<string, string> = { Accept: 'application/json' };
   const bearer = init.token ?? (tokenProvider ? await tokenProvider() : null);
   if (bearer) headers.Authorization = `Bearer ${bearer}`;
@@ -53,7 +56,10 @@ export async function api<T>(path: string, init: { method?: string; body?: unkno
   }
   if (!res.ok) {
     const e = data?.error;
-    const err = new ApiError(res.status, e?.code ?? `HTTP_${res.status}`, e?.message ?? 'Request failed', e?.details);
+    // No RaftNow error envelope: a proxy or host answered, not the API itself.
+    const err = e
+      ? new ApiError(res.status, e.code ?? `HTTP_${res.status}`, e.message || 'Request failed', e.details)
+      : new ApiError(res.status, `HTTP_${res.status}`, `The RaftNow API is not responding (HTTP ${res.status}). The server may be down or still starting.`);
     if (res.status === 401 && init.token === undefined && REJECTED_TOKEN_CODES.includes(err.code)) onSessionRejected?.();
     throw err;
   }

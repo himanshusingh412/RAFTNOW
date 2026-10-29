@@ -52,6 +52,8 @@ export function checkEnvironment(env: NodeJS.ProcessEnv = process.env): EnvRepor
   const driver = env.STORAGE_DRIVER ?? 'local';
   if (driver === 's3') {
     need(present(env.S3_BUCKET_PRIVATE) && present(env.S3_REGION), 'S3_BUCKET_PRIVATE / S3_REGION required for STORAGE_DRIVER=s3');
+    need(present(env.S3_BUCKET_PUBLIC) && present(env.PUBLIC_MEDIA_BASE_URL),
+      'S3_BUCKET_PUBLIC / PUBLIC_MEDIA_BASE_URL required for STORAGE_DRIVER=s3 (trip photo uploads disabled)');
   } else if (driver === 'local') {
     need(strongSecret(env.STORAGE_SIGNING_SECRET), 'STORAGE_SIGNING_SECRET must be >= 32 chars for local document storage');
     if (isProduction) warnings.push('STORAGE_DRIVER=local in production: KYC documents live on the API container disk — use s3');

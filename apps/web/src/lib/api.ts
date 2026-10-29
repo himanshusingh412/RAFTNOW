@@ -46,8 +46,10 @@ export async function request<T>(
   }
   if (!res.ok) {
     const e = data?.error;
-    const fieldMsg = Array.isArray(e?.details?.fields) ? `: ${e.details.fields.join('; ')}` : '';
-    throw new ApiError(res.status, e?.code ?? `HTTP_${res.status}`, (e?.message ?? res.statusText ?? 'Request failed') + fieldMsg, e?.details);
+    // No RaftNow error envelope: a proxy or host answered, not the API itself.
+    if (!e) throw new ApiError(res.status, `HTTP_${res.status}`, `The RaftNow API is not responding (HTTP ${res.status}). The server may be down or still starting.`);
+    const fieldMsg = Array.isArray(e.details?.fields) ? `: ${e.details.fields.join('; ')}` : '';
+    throw new ApiError(res.status, e.code ?? `HTTP_${res.status}`, (e.message || 'Request failed') + fieldMsg, e.details);
   }
   return data as T;
 }

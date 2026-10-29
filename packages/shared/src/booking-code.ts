@@ -22,17 +22,16 @@ export function generateBookingCode(): string {
   let code = '';
   const alphabetLength = BOOKING_CODE_ALPHABET.length;
 
-  // Use crypto.getRandomValues if available (browser/Node 16+), else Math.random fallback
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const bytes = new Uint8Array(BOOKING_CODE_LENGTH);
-    crypto.getRandomValues(bytes);
-    for (let i = 0; i < BOOKING_CODE_LENGTH; i++) {
-      code += BOOKING_CODE_ALPHABET[bytes[i] % alphabetLength];
-    }
-  } else {
-    for (let i = 0; i < BOOKING_CODE_LENGTH; i++) {
-      code += BOOKING_CODE_ALPHABET[Math.floor(Math.random() * alphabetLength)];
-    }
+  // Codes are typed at check-in (V-08), so they must not be guessable: no Math.random fallback.
+  if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
+    throw new Error('generateBookingCode needs crypto.getRandomValues (Node 16+ or a browser)');
+  }
+  // Rejection sampling keeps every character equally likely (256 % 31 != 0).
+  const limit = 256 - (256 % alphabetLength);
+  const byte = new Uint8Array(1);
+  while (code.length < BOOKING_CODE_LENGTH) {
+    crypto.getRandomValues(byte);
+    if (byte[0] < limit) code += BOOKING_CODE_ALPHABET[byte[0] % alphabetLength];
   }
 
   return code;

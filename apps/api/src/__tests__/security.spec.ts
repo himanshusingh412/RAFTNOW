@@ -40,7 +40,7 @@ describe('environment validation', () => {
     APP_ENV: 'production', DATABASE_URL: 'postgres://x', QR_SIGNING_SECRET: strong, JWT_SECRET: strong, FIELD_ENCRYPTION_KEY: KEY,
     RAZORPAY_KEY_ID: 'rzp_live_abc123', RAZORPAY_KEY_SECRET: strong, RAZORPAY_WEBHOOK_SECRET: strong,
     FIREBASE_PROJECT_ID: 'p', FIREBASE_CLIENT_EMAIL: 'e', FIREBASE_PRIVATE_KEY: 'k', STORAGE_DRIVER: 's3', S3_BUCKET_PRIVATE: 'b', S3_REGION: 'r',
-    CORS_ALLOWED_ORIGINS: 'https://raftnow.in',
+    S3_BUCKET_PUBLIC: 'pb', PUBLIC_MEDIA_BASE_URL: 'https://media.raftnow.in', CORS_ALLOWED_ORIGINS: 'https://raftnow.in',
   };
 
   it('accepts a complete production config', () => {
@@ -48,6 +48,9 @@ describe('environment validation', () => {
   });
   it('refuses dev auth bypass in production', () => {
     expect(checkEnvironment({ ...prod, AUTH_DEV_BYPASS: 'true' } as any).errors.join()).toMatch(/AUTH_DEV_BYPASS/);
+  });
+  it('refuses S3 without a public photo bucket in production', () => {
+    expect(checkEnvironment({ ...prod, PUBLIC_MEDIA_BASE_URL: '' } as any).errors.join()).toMatch(/PUBLIC_MEDIA_BASE_URL/);
   });
   it('refuses placeholder secrets in production', () => {
     const r = checkEnvironment({ ...prod, QR_SIGNING_SECRET: 'change-me-to-a-secure-32-byte-random-secret' } as any);
