@@ -31,13 +31,11 @@ language sql stable security definer set search_path = '' as $$
 $$;
 
 -- true for the service role (server-side jobs, webhooks) and for direct database
--- sessions with no JWT at all (migrations, seed, psql). Never true for anon/authenticated.
+-- sessions with no role switch at all (migrations, seed, psql). Never true for anon/authenticated.
+-- Reads the session's database role, which security definer functions don't change, not token claims.
 create or replace function public.is_service() returns boolean
 language sql stable set search_path = '' as $$
-  select coalesce(
-    nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role',
-    nullif(current_setting('request.jwt.claim.role', true), ''),
-    'direct') in ('service_role', 'direct')
+  select current_setting('role') in ('service_role', 'none')
 $$;
 
 create or replace function public.is_operator_member(p_operator uuid) returns boolean
@@ -335,10 +333,17 @@ begin
   update public.bookings set status = 'cancelled', cancel_reason = coalesce(cancel_reason, 'payment_late'),
     cancelled_at = coalesce(cancelled_at, now()), seats_state = 'released' where id = v_b.id;
   insert into public.refunds (payment_id, booking_id, amount_paise, reason, idempotency_key)
-  values (v_pay.id, v_b.id, v_pay.amount_paise, 'payment_late', 'late:' || v_pay.id)
+  values (v_pay.id, v_b.id, v_pay.amount_paise,
+          case when v_b.cancel_reason = 'platform_closure' then 'platform_closure' else 'payment_late' end, 'late:' || v_pay.id)
   on conflict (idempotency_key) do nothing;
-  perform public.enqueue_notification(public.booking_email(v_b.id), 'payment_refunded_seats_gone',
-    public.booking_email_payload(v_b.id), 'late:' || v_b.id);
+  -- a closure cancelled it: say so (with the closure's reason), not "the trip filled up"
+  perform public.enqueue_notification(public.booking_email(v_b.id),
+    case when v_b.cancel_reason = 'platform_closure' then 'closure_cancelled' else 'payment_refunded_seats_gone' end,
+    public.booking_email_payload(v_b.id) || jsonb_build_object('reason', (select c.reason from public.closures c
+      join public.slots s on s.id = v_b.slot_id
+      where (c.route_id is null or c.route_id = v_b.route_id) and public.ist_date(s.starts_at) between c.starts_on and c.ends_on
+      order by c.created_at desc limit 1)),
+    'late:' || v_b.id);
   return 'refund_queued';
 end $$;
 
@@ -382,7 +387,8 @@ begin
 
   select starts_at into v_start from public.slots where id = v_b.slot_id;
   select coalesce(sum(p.amount_paise - p.amount_refunded_paise), 0) into v_paid
-    from public.payments p where p.booking_id = v_b.id and p.status in ('captured', 'partially_refunded');
+    from public.payments p where p.booking_id = v_b.id and p.status in ('captured', 'partially_refunded')
+      and not exists (select 1 from public.refunds r where r.payment_id = p.id); -- skip a duplicate already being refunded
   hours_before := round(extract(epoch from (v_start - now())) / 3600.0, 2);
 
   if hours_before >= public.setting_int('refund_full_hours') then
@@ -424,6 +430,7 @@ begin
 
   if v_q.amount_paise > 0 then
     select * into v_pay from public.payments where booking_id = v_b.id and status = 'captured'
+      and not exists (select 1 from public.refunds r where r.payment_id = payments.id)
       order by created_at limit 1;
     insert into public.refunds (payment_id, booking_id, amount_paise, reason, idempotency_key)
     values (v_pay.id, v_b.id, v_q.amount_paise,
@@ -537,6 +544,7 @@ begin
   for v_b in select b.*, p.id as payment_id, p.amount_paise - p.amount_refunded_paise as net_paid
              from public.bookings b join public.slots s on s.id = b.slot_id
              left join public.payments p on p.booking_id = b.id and p.status = 'captured'
+               and not exists (select 1 from public.refunds r where r.payment_id = p.id) -- one row per booking
              where (p_route is null or b.route_id = p_route)
                and public.ist_date(s.starts_at) between p_from and p_to
                and b.status in ('confirmed', 'pending_payment')
@@ -701,7 +709,9 @@ language sql security definer set search_path = '' as $$
   update public.refunds r set attempts = r.attempts + 1,
     next_attempt_at = now() + make_interval(mins => power(2, least(r.attempts, 6))::int)
   where r.id in (select id from public.refunds
-                 where status in ('pending', 'failed') and next_attempt_at <= now()
+                 -- also re-check a refund still 'submitted' after a day, in case Razorpay's webhook never came
+                 where (status in ('pending', 'failed') or (status = 'submitted' and updated_at < now() - interval '1 day'))
+                   and next_attempt_at <= now()
                  order by next_attempt_at limit p_limit for update skip locked)
   returning r.*
 $$;

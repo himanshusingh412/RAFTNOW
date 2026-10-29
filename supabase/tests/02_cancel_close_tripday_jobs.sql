@@ -225,6 +225,11 @@ select test.ok((select sum(amount_paise) from public.refunds where booking_id = 
   'the refund is the full amount');
 select test.ok((select seats_held + seats_booked from public.slots where id = (select slot_id from pc)) = 0,
   'no seat is re-taken on the closed trip');
+select test.ok((select string_agg(reason, ',') from public.refunds where booking_id = (select id from pc)) = 'platform_closure',
+  'the refund is recorded as a closure refund');
+select test.ok((select string_agg(template || '/' || coalesce(payload ->> 'reason', '-'), ',') from public.notifications
+                where dedupe_key = 'late:' || (select id from pc)) = 'closure_cancelled/weather',
+  'the rafter gets the closure email, with its reason');
 rollback;
 
 -- ---------------- a refund Razorpay keeps refusing: retried later each time, then dead, and ops told
@@ -319,4 +324,68 @@ select test.logout();
 select test.ok((select count(*) from public.incidents where booking_id = (select id from c5)) = 2, 'the trip''s operator reports incidents');
 select test.ok((select count(*) from public.notifications n join public.incidents i on n.dedupe_key = 'incident:' || i.id
                 where i.booking_id = (select id from c5)) = 1, 'only the high or critical incident alerts ops');
+rollback;
+
+-- ---------------- is_service() trusts the session's database role, never missing token claims
+begin;
+select test.login(:'rafter');
+select set_config('request.jwt.claims', '', false);
+select test.fails($$select public.generate_slots('10000000-0000-4000-8000-000000000001', current_date + 45, current_date + 45, array['09:00']::time[])$$,
+  'forbidden', 'a signed-in user without token claims is still not the server');
+select test.logout();
+set local role service_role;
+select test.ok(public.generate_slots('10000000-0000-4000-8000-000000000001', current_date + 45, current_date + 45, array['09:00']::time[]) = 1,
+  'the server''s service role still runs admin functions');
+reset role;
+rollback;
+
+-- ---------------- a booking paid through two orders: the duplicate (already being refunded) never counts again
+begin;
+select test.login(:'rafter');
+create temp table dc as select * from public.create_booking(test.slot('kaudiyala', 23, 8), test.people(array[30]));
+grant select on dc to public;
+select test.logout();
+select public.attach_order((select id from dc), 'order_dc_a');
+select public.attach_order((select id from dc), 'order_dc_b');
+select public.confirm_payment('order_dc_a', 'pay_dc_a', (select total_paise from dc));
+select public.confirm_payment('order_dc_b', 'pay_dc_b', (select total_paise from dc));
+select test.ok(public.close_river('10000000-0000-4000-8000-000000000004', current_date + 23, current_date + 23, 'weather') = 1,
+  'a closure still works on a day with a double-paid booking');
+select test.ok((select string_agg(r.reason || ' on ' || p.provider_order_id || ' ' || (r.amount_paise = p.amount_paise), ', ' order by r.reason)
+                from public.refunds r join public.payments p on p.id = r.payment_id where r.booking_id = (select id from dc))
+               = 'admin on order_dc_b true, platform_closure on order_dc_a true', 'each payment is refunded once, in full');
+rollback;
+begin;
+select test.login(:'rafter');
+create temp table dd as select * from public.create_booking(test.slot('kaudiyala', 24, 8), test.people(array[30]));
+grant select on dd to public;
+select test.logout();
+select public.attach_order((select id from dd), 'order_dd_a');
+select public.attach_order((select id from dd), 'order_dd_b');
+select public.confirm_payment('order_dd_a', 'pay_dd_a', (select total_paise from dd));
+select public.confirm_payment('order_dd_b', 'pay_dd_b', (select total_paise from dd));
+select test.login(:'rafter');
+select test.ok((select amount_paise from public.refund_quote((select id from dd))) = (select total_paise from dd),
+  'the refund quote counts a double-paid booking once');
+select public.cancel_booking((select id from dd));
+select test.logout();
+select test.ok((select p.provider_order_id || ' ' || (r.amount_paise = p.amount_paise) from public.refunds r
+                join public.payments p on p.id = r.payment_id where r.booking_id = (select id from dd) and r.reason = 'customer_full')
+               = 'order_dd_a true', 'the cancel refund goes, in full, on the payment not already being refunded');
+rollback;
+
+-- ---------------- a refund stuck in 'submitted' (Razorpay's refund webhook never came) is checked again after a day
+begin;
+create temp table sb as select test.book_paid(:'rafter', test.slot('brahmpuri', 26, 8), array[30]) as id;
+grant select on sb to public;
+select test.login(:'rafter');
+select public.cancel_booking((select id from sb));
+select test.logout();
+create temp table sr as select id from public.refunds where booking_id = (select id from sb);
+update public.refunds set status = 'submitted', provider_refund_id = 'rfnd_stuck', next_attempt_at = now() where id = (select id from sr);
+select test.ok(not exists (select 1 from public.claim_refunds(100) c where c.id = (select id from sr)), 'a just-submitted refund is left alone');
+alter table public.refunds disable trigger touch_refunds;
+update public.refunds set updated_at = now() - interval '2 days', next_attempt_at = now() where id = (select id from sr);
+alter table public.refunds enable trigger touch_refunds;
+select test.ok(exists (select 1 from public.claim_refunds(100) c where c.id = (select id from sr)), 'a refund submitted over a day ago is checked again');
 rollback;

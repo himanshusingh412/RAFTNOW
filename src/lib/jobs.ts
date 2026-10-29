@@ -51,5 +51,9 @@ export async function runTick() {
     }
   }
 
+  // a blank ops_email silently drops every ops alert (no operator, dead refunds, incidents): fail the tick so it's noticed
+  const ops = await db.rpc("setting_text", { p_key: "ops_email" });
+  if (!ops.data) throw new Error("ops_email is not set: ops alerts are being dropped");
+
   return result;
 }
