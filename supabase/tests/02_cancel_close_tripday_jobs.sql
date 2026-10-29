@@ -25,6 +25,7 @@ select test.ok((select percent from public.refund_quote((select id from c1))) = 
 select test.login(:'rafter2');
 select test.fails($$select * from public.refund_quote((select id from c1))$$, 'booking_not_found', 'second user cannot quote it');
 select test.logout();
+select test.fails($$select * from public.refund_quote((select id from c1))$$, 'booking_not_found', 'only the owner or an admin can quote it, not the server');
 select test.login(:'rafter');
 select test.ok((select refund_paise from public.cancel_booking((select id from c1)))
                = (select total_paise from public.bookings where id = (select id from c1)), 'full refund on early cancel');

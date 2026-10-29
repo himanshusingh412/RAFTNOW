@@ -1,7 +1,7 @@
 -- Rafting marketplace: business logic.
 -- Every seat and money change happens in one of these functions, in one transaction.
 -- Errors are raised with a short machine code as the message (e.g. 'not_enough_seats');
--- src/lib/db-errors.ts maps them to HTTP responses.
+-- src/lib/http.ts maps them to HTTP responses.
 
 -- ---------------------------------------------------------------------------
 -- small helpers
@@ -379,8 +379,7 @@ language plpgsql stable security definer set search_path = '' as $$
 declare v_b public.bookings; v_start timestamptz; v_paid int;
 begin
   select * into v_b from public.bookings where id = p_booking;
-  if not found or (v_b.user_id is distinct from auth.uid() and not public.is_admin()
-                   and not public.is_service()) then
+  if not found or (v_b.user_id is distinct from auth.uid() and not public.is_admin()) then
     raise exception 'booking_not_found';
   end if;
   if v_b.status <> 'confirmed' then raise exception 'booking_not_cancellable'; end if;
@@ -791,6 +790,7 @@ begin
     update public.bookings set reminder_sent_at = now() where id = v_b.id;
     v_n := v_n + 1;
   end loop;
+  -- not a reminder: this per-minute job also prunes day-old rate-limit counters
   delete from public.rate_limits where window_start < now() - interval '1 day';
   return v_n;
 end $$;
